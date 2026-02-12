@@ -75,7 +75,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "petmily-app-v6"; 
 
-// --- 샘플 데이터 ---
+// --- 샘플 데이터 (20개) ---
 const INITIAL_DUMMY_POSTS = [
   { id: 'd1', authorId: 'u1', authorName: '산책대장', imageUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800', caption: '우리 뽀삐 윙크 발사! 😉', likes: Array(85).fill('u'), comments: [{name: '초코맘', text: '어머 너무 예뻐요!'}], createdAt: { seconds: Date.now()/1000 - 10000 } },
   { id: 'd2', authorId: 'u2', authorName: '박스냥이', imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', caption: '상자만 보면 환장하는 우리 애기..', likes: Array(72).fill('u'), comments: [], createdAt: { seconds: Date.now()/1000 - 20000 } },
@@ -105,6 +105,7 @@ export default function App() {
   const [selectedButler, setSelectedButler] = useState(null); 
   const [toast, setToast] = useState({ message: '', visible: false });
 
+  // --- 랜덤 로딩 메시지 ---
   const loadingMessage = useMemo(() => {
     const msgs = ["꼬리 흔드는 중~ 🐾", "가족들을 부르는 중... 📣", "엉덩이 실룩실룩~ 🍑", "간식 찾는 중... 🍖", "기다려! 하는 중... 🐕", "발도장 꾹 찍는 중... 👣"];
     return msgs[Math.floor(Math.random() * msgs.length)];
@@ -115,13 +116,19 @@ export default function App() {
     setTimeout(() => setToast({ message: '', visible: false }), 2500);
   };
 
+  // 1. 인증 및 프로필 로직 (오류 방어 강화)
   useEffect(() => {
     const initAuth = async () => {
       try {
         await setPersistence(auth, browserLocalPersistence);
         onAuthStateChanged(auth, async (u) => {
           if (!u) {
-            try { await signInAnonymously(auth); } catch (e) { setLoading(false); }
+            try { 
+              await signInAnonymously(auth); 
+            } catch (e) { 
+              console.error("익명 인증 실패", e);
+              setLoading(false); 
+            }
           } else {
             setUser(u);
             if (!u.isAnonymous) {
@@ -130,12 +137,12 @@ export default function App() {
                 const profileSnap = await getDoc(profileRef);
                 if (profileSnap.exists()) {
                   setProfile(profileSnap.data());
-                  setView('feed');
+                  setView('feed'); // 정보가 있으면 피드로
                 } else {
-                  setView('profile_setup');
+                  setView('profile_setup'); // 정보 없으면 설정으로
                 }
               } catch (err) { 
-                console.error("Profile Error", err);
+                console.error("프로필 로드 실패", err);
                 setView('profile_setup'); 
               }
             } else {
@@ -144,11 +151,15 @@ export default function App() {
             setLoading(false);
           }
         });
-      } catch (err) { setLoading(false); }
+      } catch (err) { 
+        console.error("Persistence 설정 실패", err);
+        setLoading(false); 
+      }
     };
     initAuth();
   }, []);
 
+  // 2. 게시물 실시간 구독
   useEffect(() => {
     if (!user) return;
     const postsRef = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
@@ -159,11 +170,13 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
+  // 3. 전체 게시물 병합
   const allPosts = useMemo(() => {
     const combined = [...realPosts, ...dummyPosts];
     return combined.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [realPosts, dummyPosts]);
 
+  // 4. 랭킹 데이터 계산
   const rankingData = useMemo(() => {
     const thirtyDaysAgo = Date.now() / 1000 - 30 * 24 * 60 * 60;
     const userScores = {};
@@ -196,6 +209,7 @@ export default function App() {
 
   const activePostForComment = useMemo(() => allPosts.find(p => p.id === selectedPostIdForComment), [allPosts, selectedPostIdForComment]);
 
+  // --- 화면 이동 및 기능 로직 ---
   const goToPost = (postId) => {
     setTargetPostId(postId);
     setView('feed');
@@ -250,8 +264,10 @@ export default function App() {
   const handleSaveProfile = async (profileData) => {
     if (!user) return;
     try {
+      // 이름이 비어있는 아이 정보는 필터링하여 저장
       const cleanedPets = profileData.pets.filter(p => p.name.trim() !== '');
       const finalData = { ...profileData, pets: cleanedPets };
+      
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info');
       await setDoc(profileRef, { ...finalData, updatedAt: serverTimestamp() });
       setProfile(finalData);
@@ -387,20 +403,27 @@ export default function App() {
         <ProfileForm isEdit={view === 'profile_edit'} initialData={profile} onSave={handleSaveProfile} onBack={() => setView('feed')} onLogout={() => { signOut(auth); window.location.reload(); }} />
       )}
 
-      {/* 하단 네비게이션 */}
+      {/* 하단 네비게이션 - 슬림 & 플로팅 디자인 */}
       {isMainView && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-stone-900/98 backdrop-blur-2xl px-4 py-2.5 pb-7 flex justify-between items-center shadow-2xl z-40 border-t border-white/5 rounded-t-[2.5rem]">
-          <button onClick={() => setView('feed')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-90 ${view === 'feed' ? 'text-white' : 'text-stone-50 hover:text-stone-300'}`}><Home size={20} /><span className="text-[9px] font-black uppercase tracking-widest leading-none">홈</span></button>
-          <button onClick={() => setView('search')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-90 ${view === 'search' ? 'text-white' : 'text-stone-50 hover:text-stone-300'}`}><Search size={20} /><span className="text-[9px] font-black uppercase tracking-widest leading-none">찾기</span></button>
-          <div className="flex-1 flex flex-col items-center -translate-y-4">
-            <button onClick={() => user.isAnonymous ? setIsLoginModalOpen(true) : setIsCreateModalOpen(true)} className="bg-gradient-to-br from-orange-400 to-orange-600 text-white p-3.5 rounded-full shadow-[0_15px_30px_-10px_rgba(249,115,22,0.6)] border-4 border-stone-900 active:scale-75 transition-transform"><PlusSquare size={26} /></button>
-            <span className="text-[8px] font-black text-orange-500 mt-1 uppercase tracking-widest italic leading-none">자랑하기</span>
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] bg-stone-900/95 backdrop-blur-xl px-2 py-3 rounded-[2rem] flex justify-between items-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] z-40 border border-white/10 ring-1 ring-white/5 animate-in slide-in-from-bottom-4 duration-500">
+          <button onClick={() => setView('feed')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'feed' ? 'text-white' : 'text-stone-500'}`}><Home size={20} /><span className="text-[8px] font-black uppercase tracking-tighter">홈</span></button>
+          <button onClick={() => setView('search')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'search' ? 'text-white' : 'text-stone-500'}`}><Search size={20} /><span className="text-[8px] font-black uppercase tracking-tighter">찾기</span></button>
+          
+          <div className="flex-1 flex justify-center">
+            <button 
+              onClick={() => user.isAnonymous ? setIsLoginModalOpen(true) : setIsCreateModalOpen(true)} 
+              className="bg-gradient-to-br from-orange-400 to-orange-600 text-white p-3 rounded-2xl shadow-[0_10px_20px_-5px_rgba(249,115,22,0.5)] border-2 border-white/10 active:scale-75 transition-transform"
+            >
+              <PlusSquare size={24} />
+            </button>
           </div>
-          <button onClick={() => setView('activity')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-90 ${view === 'activity' ? 'text-white' : 'text-stone-50 hover:text-stone-300'}`}><PawPrint size={20} /><span className="text-[9px] font-black uppercase tracking-widest leading-none">꾹</span></button>
-          <button onClick={() => setView('gallery')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-90 ${view === 'gallery' ? 'text-white' : 'text-stone-50 hover:text-stone-300'}`}><User size={20} /><span className="text-[9px] font-black uppercase tracking-widest leading-none">보물함</span></button>
+          
+          <button onClick={() => setView('activity')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'activity' ? 'text-white' : 'text-stone-500'}`}><PawPrint size={20} /><span className="text-[8px] font-black uppercase tracking-tighter">꾹</span></button>
+          <button onClick={() => setView('gallery')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'gallery' ? 'text-white' : 'text-stone-500'}`}><User size={20} /><span className="text-[8px] font-black uppercase tracking-tighter">보물함</span></button>
         </nav>
       )}
 
+      {/* 공용 모달 */}
       {isCreateModalOpen && <CreateModal onClose={() => setIsCreateModalOpen(false)} onSave={handleSavePost} userName={profile?.nickname || user?.displayName || ''} />}
       {isLoginModalOpen && <LoginModal onClose={() => setIsLoginModalOpen(false)} onLogin={handleGoogleLogin} />}
       {isCommentModalOpen && <CommentModal post={activePostForComment} onClose={() => {setIsCommentModalOpen(false); setSelectedPostIdForComment(null);}} onAddComment={handleAddComment} userNickname={profile?.nickname || user?.displayName} />}
