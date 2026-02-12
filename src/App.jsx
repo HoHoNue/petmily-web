@@ -65,11 +65,20 @@ export default function App() {
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   const [toast, setToast] = useState({ message: '', visible: false });
 
-  // 카카오톡/인앱 브라우저 감지 로직
+  // 인앱 브라우저 감지 및 자동 전환 로직
   useEffect(() => {
     const ua = navigator.userAgent.toLowerCase();
-    if (ua.indexOf('kakaotalk') > -1 || ua.indexOf('instagram') > -1 || ua.indexOf('line') > -1) {
+    const isInApp = ua.indexOf('kakaotalk') > -1 || ua.indexOf('instagram') > -1 || ua.indexOf('line') > -1;
+    
+    if (isInApp) {
       setIsInAppBrowser(true);
+
+      // 안드로이드: intent 스키마를 사용하여 크롬 브라우저 자동 호출 시도
+      if (ua.match(/android/)) {
+        const currentUrl = window.location.href.replace(/https?:\/\//, '');
+        window.location.href = `intent://${currentUrl}#Intent;scheme=https;package=com.android.chrome;end`;
+      }
+      // iOS: 시스템 보안상 자동 전환이 불가능하므로 안내 모달을 띄움
     }
   }, []);
 
@@ -136,29 +145,41 @@ export default function App() {
         </div>
       )}
 
-      {/* 카카오톡 접속 안내 모달 */}
+      {/* 인앱 브라우저 탈출 안내 모달 (iOS 및 자동 전환 실패 대비) */}
       {isInAppBrowser && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] p-8 text-center shadow-2xl border-t-8 border-orange-500">
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] p-8 text-center shadow-2xl border-t-8 border-orange-500 max-w-[320px]">
             <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <AlertTriangle className="text-orange-500" size={32} />
+              <ExternalLink className="text-orange-500" size={32} />
             </div>
-            <h2 className="text-xl font-black mb-3 tracking-tight text-stone-800">외부 브라우저 권장</h2>
+            <h2 className="text-xl font-black mb-3 tracking-tight text-stone-800">외부 브라우저로 연결</h2>
             <p className="text-stone-500 text-sm leading-relaxed mb-8">
-              카카오톡 브라우저에서는<br/>
-              <b>구글 로그인</b>이 제한될 수 있습니다.<br/>
-              <span className="text-orange-600 font-bold">크롬(Chrome)이나 사파리</span>로<br/>
-              접속하시면 더 쾌적하게 이용 가능해요!
+              인앱 브라우저에서는 <b>구글 로그인</b>이<br/>
+              제한되어 서비스 이용이 어려워요!<br/>
+              <span className="text-orange-600 font-bold underline decoration-orange-200">크롬이나 사파리</span>로 다시 열까요?
             </p>
             <div className="space-y-3">
-              <div className="text-[11px] text-stone-400 bg-stone-50 py-3 rounded-xl mb-4 font-bold uppercase tracking-widest">
-                우측 상단 [ ⋮ ] {"->"} [다른 브라우저로 열기]
+              <button 
+                onClick={() => {
+                  const url = window.location.href;
+                  // 모바일 브라우저별 강제 이동 시도
+                  window.location.href = `googlechrome://navigate?url=${url}`;
+                  setTimeout(() => {
+                    window.location.href = url;
+                  }, 500);
+                }}
+                className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-lg shadow-orange-100"
+              >
+                브라우저로 바로가기
+              </button>
+              <div className="text-[10px] text-stone-300 py-2 font-bold uppercase tracking-widest">
+                상단 [ ⋮ ] {"->"} [다른 브라우저로 열기]
               </div>
               <button 
                 onClick={() => setIsInAppBrowser(false)}
-                className="w-full bg-stone-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all"
+                className="w-full bg-stone-100 text-stone-400 py-3 rounded-2xl font-black text-xs active:scale-95 transition-all"
               >
-                그냥 계속하기
+                나중에 하기
               </button>
             </div>
           </div>
