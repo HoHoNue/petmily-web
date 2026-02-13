@@ -69,7 +69,7 @@ import {
   Mouse 
 } from 'lucide-react';
 
-// --- Error Boundary ---
+// --- Error Boundary: 런타임 오류 방지 ---
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError(error) { return { hasError: true }; }
@@ -77,9 +77,9 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) return (
       <div className="h-screen flex flex-col items-center justify-center p-10 text-center bg-[#FDFCF8]">
         <AlertCircle size={48} className="text-red-500 mb-4" />
-        <h2 className="text-xl font-black mb-2">런타임 오류 발생</h2>
-        <p className="text-stone-500 text-sm mb-6">앱을 다시 불러오는 중 문제가 발생했습니다.</p>
-        <button onClick={() => window.location.reload()} className="px-6 py-3 bg-stone-900 text-white rounded-2xl font-bold">새로고침</button>
+        <h2 className="text-xl font-black mb-2 text-stone-800">잠시만요! 🐾</h2>
+        <p className="text-stone-500 text-sm mb-6 leading-relaxed">앱을 불러오는 중 작은 문제가 발생했습니다.<br/>다시 시작해볼까요?</p>
+        <button onClick={() => window.location.reload()} className="px-8 py-3.5 bg-stone-900 text-white rounded-[1.5rem] font-bold shadow-xl active:scale-95 transition-all">앱 다시 열기</button>
       </div>
     );
     return this.props.children;
@@ -102,7 +102,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "petmily-app-v6"; 
 
-// --- 전역 상수 ---
+// --- 전역 상수 및 초기 데이터 ---
 const PET_TYPES = [
   { id: 'all', label: '전체', icon: <Sparkles size={14}/> },
   { id: '강아지', label: '강아지', icon: <Dog size={14}/> },
@@ -114,30 +114,32 @@ const PET_TYPES = [
 
 const DEFAULT_PROFILE = { nickname: '', pets: [], following: [], profilePic: '' };
 
+// 중복 없는 고화질 샘플 사진 20개
 const INITIAL_DUMMY_POSTS = [
-  { id: 'd1', authorId: 'u1', authorName: '산책대장', imageUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800', caption: '우리 뽀삐 윙크 발사! 😉', likes: Array(85).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 2 } },
-  { id: 'd2', authorId: 'u2', authorName: '박스냥이', imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', caption: '상자만 보면 환장하는 우리 애기..', likes: Array(72).fill('u'), petType: '고양이', comments: [{name: '집사1호', text: '고양이들은 왜 그럴까요?ㅋㅋ'}], createdAt: { seconds: Date.now()/1000 - 86400 * 5 } },
-  { id: 'd3', authorId: 'u3', authorName: '달리기왕', imageUrl: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?w=800', caption: '오늘도 5km 완주했습니다! 🐕💨', likes: Array(164).fill('u'), petType: '강아지', comments: [{name: '건강제일', text: '체력이 대단해요!'}], createdAt: { seconds: Date.now()/1000 - 86400 * 40 } },
+  { id: 'd1', authorId: 'u1', authorName: '산책대장', imageUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800', caption: '우리 뽀삐 윙크 발사! 😉', likes: Array(85).fill('u'), petType: '강아지', comments: [{name: '초코맘', text: '어머 너무 예뻐요!'}], createdAt: { seconds: Date.now()/1000 - 86400 * 2 } },
+  { id: 'd2', authorId: 'u2', authorName: '박스냥이', imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', caption: '상자만 보면 환장하는 우리 애기..', likes: Array(72).fill('u'), petType: '고양이', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 5 } },
+  { id: 'd3', authorId: 'u3', authorName: '달리기왕', imageUrl: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?w=800', caption: '오늘도 5km 완주했습니다! 🐕💨', likes: Array(164).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 40 } },
   { id: 'd4', authorId: 'u4', authorName: '해바라기', imageUrl: 'https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=800', caption: '볼주머니에 해바라기씨 꽉꽉 채웠어요.', likes: Array(42).fill('u'), petType: '햄스터', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 10 } },
-  { id: 'd5', authorId: 'u5', authorName: '앵무박사', imageUrl: 'https://images.unsplash.com/photo-1452570053594-1b985d6ea890?w=800', caption: '안녕하세요! 말 가르치는 중이에요.', likes: Array(31).fill('u'), petType: '새', comments: [{name: '조류사랑', text: '무슨 말 하나요?'}], createdAt: { seconds: Date.now()/1000 - 86400 * 15 } },
-  { id: 'd6', authorId: 'u6', authorName: '절미맘', imageUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=800', caption: '인절미가 따로 없네요 정말ㅋㅋ', likes: Array(128).fill('u'), petType: '강아지', comments: [{name: '댕댕이', text: '꼬수운 냄새 날 것 같아요'}], createdAt: { seconds: Date.now()/1000 - 86400 * 3 } },
-  { id: 'd7', authorId: 'u7', authorName: '치즈식빵', imageUrl: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=800', caption: '햇빛 아래서 낮잠 자는게 제일 좋아.', likes: Array(55).fill('u'), petType: '고양이', comments: [{name: '치즈조아', text: '구워진 색깔이 완벽하네요'}], createdAt: { seconds: Date.now()/1000 - 86400 * 12 } },
-  { id: 'd8', authorId: 'u8', authorName: '불독파파', imageUrl: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800', caption: '표정이 왜 그래? 간식 줄까?', likes: Array(39).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 20 } },
-  { id: 'd9', authorId: 'u9', authorName: '솜사탕', imageUrl: 'https://images.unsplash.com/photo-1591160674255-fc8b9f70d515?w=800', caption: '구름이 걸어다니는 중입니다 ☁️', likes: Array(288).fill('u'), petType: '강아지', comments: [{name: '뭉게뭉게', text: '진짜 솜사탕 같아요!'}], createdAt: { seconds: Date.now()/1000 - 86400 * 45 } },
-  { id: 'd10', authorId: 'u10', authorName: '시바랜드', imageUrl: 'https://images.unsplash.com/photo-1583512603805-3cc6b41f3edb?w=800', caption: '볼살 만지실 분 구함 (1/100)', likes: Array(61).fill('u'), petType: '강아지', comments: [{name: '손번쩍', text: '저요 저요!'}], createdAt: { seconds: Date.now()/1000 - 86400 * 25 } },
-  { id: 'd11', authorId: 'u11', authorName: '블루러브', imageUrl: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?w=800', caption: '눈동자가 보석 같은 우리 아이.', likes: Array(45).fill('u'), petType: '고양이', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 8 } },
-  { id: 'd12', authorId: 'u12', authorName: '깜찍이댁', imageUrl: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?w=800', caption: '메롱 하고 있는 거 찍혔어요!', likes: Array(92).fill('u'), petType: '강아지', comments: [{name: '귀여워', text: '타이밍 대박!'}], createdAt: { seconds: Date.now()/1000 - 86400 * 1 } },
-  { id: 'd13', authorId: 'u13', authorName: '우아한집사', imageUrl: 'https://images.unsplash.com/photo-1557246565-8a3d3ab5d7f6?w=800', caption: '털 관리받고 기분 좋은 페르시안.', likes: Array(33).fill('u'), petType: '고양이', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 18 } },
-  { id: 'd14', authorId: 'u14', authorName: '도치아빠', imageUrl: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800', caption: '가시공주님의 우아한 식사 시간.', likes: Array(22).fill('u'), petType: '기타', comments: [{name: '고슴도치', text: '오독오독 잘 먹네요'}], createdAt: { seconds: Date.now()/1000 - 86400 * 30 } },
-  { id: 'd15', authorId: 'u15', authorName: '웰시마니아', imageUrl: 'https://images.unsplash.com/photo-1519098901909-b1553a1190af?w=800', caption: '식빵 굽는 엉덩이가 매력 포인트 🍞', likes: Array(110).fill('u'), petType: '강아지', comments: [{name: '빵순이', text: '진짜 식빵 같아요ㅋㅋ'}], createdAt: { seconds: Date.now()/1000 - 86400 * 14 } },
-  { id: 'd16', authorId: 'u16', authorName: '토끼왕국', imageUrl: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=800', caption: '코 씰룩씰룩 하는 것 좀 보세요.', likes: Array(58).fill('u'), petType: '기타', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 7 } },
-  { id: 'd17', authorId: 'u17', authorName: '냥집사최고', imageUrl: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=800', caption: '안경 씌워봤는데 너무 똑똑해 보임ㅋㅋ', likes: Array(77).fill('u'), petType: '고양이', comments: [{name: '박사님', text: '철학자 고양이네요'}], createdAt: { seconds: Date.now()/1000 - 86400 * 22 } },
-  { id: 'd18', authorId: 'u18', authorName: '리트리버맘', imageUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=800', caption: '천사견 리트리버와 낮잠 자기.', likes: Array(142).fill('u'), petType: '강아지', comments: [{name: '힐링', text: '보는 것만으로도 힐링돼요'}], createdAt: { seconds: Date.now()/1000 - 86400 * 4 } },
-  { id: 'd19', authorId: 'u19', authorName: '금붕어친구', imageUrl: 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=800', caption: '오늘 물멍하기 딱 좋은 날씨네요.', likes: Array(15).fill('u'), petType: '기타', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 28 } },
-  { id: 'd20', authorId: 'u20', authorName: '말티즈사랑', imageUrl: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800', caption: '참지 않는 말티즈! 오늘도 우다다 성공!', likes: Array(67).fill('u'), petType: '강아지', comments: [{name: '백구', text: '역시 말티즈 파워!'}], createdAt: { seconds: Date.now()/1000 - 86400 * 1 } },
+  { id: 'd5', authorId: 'u5', authorName: '앵무박사', imageUrl: 'https://images.unsplash.com/photo-1452570053594-1b985d6ea890?w=800', caption: '안녕하세요! 말 가르치는 중이에요.', likes: Array(31).fill('u'), petType: '새', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 15 } },
+  { id: 'd6', authorId: 'u6', authorName: '절미맘', imageUrl: 'https://images.unsplash.com/photo-1530281739849-51dd3ad7f3cf?w=800', caption: '인절미가 따로 없네요 정말ㅋㅋ', likes: Array(128).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 3 } },
+  { id: 'd7', authorId: 'u7', authorName: '치즈식빵', imageUrl: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=800', caption: '햇빛 아래서 낮잠 자는게 제일 좋아.', likes: Array(55).fill('u'), petType: '고양이', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 12 } },
+  { id: 'd8', authorId: 'u8', authorName: '불독파파', imageUrl: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=800', caption: '표정이 왜 그래? 간식 줄까?', likes: Array(39).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 20 } },
+  { id: 'd9', authorId: 'u9', authorName: '솜사탕', imageUrl: 'https://images.unsplash.com/photo-1591160674255-fc8b9f70d515?w=800', caption: '구름이 걸어다니는 중입니다 ☁️', likes: Array(288).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 45 } },
+  { id: 'd10', authorId: 'u10', authorName: '시바랜드', imageUrl: 'https://images.unsplash.com/photo-1583512603805-3cc6b41f3edb?w=800', caption: '볼살 만지실 분 구함 (1/100)', likes: Array(61).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 25 } },
+  { id: 'd11', authorId: 'u11', authorName: '눈보라', imageUrl: 'https://images.unsplash.com/photo-1558788353-f76d92427f16?w=800', caption: '오늘 첫 눈 구경했어요! 신기해하네요.', likes: Array(45).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 8 } },
+  { id: 'd12', authorId: 'u12', authorName: '우주집사', imageUrl: 'https://images.unsplash.com/photo-1511044568932-338cba0ad803?w=800', caption: '우주를 담은 고양이의 눈동자 ✨', likes: Array(92).fill('u'), petType: '고양이', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 1 } },
+  { id: 'd13', authorId: 'u13', authorName: '당근마니아', imageUrl: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=800', caption: '당근 하나면 세상을 다 가진 기분!', likes: Array(33).fill('u'), petType: '기타', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 18 } },
+  { id: 'd14', authorId: 'u14', authorName: '도치댁', imageUrl: 'https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?w=800', caption: '밤송이가 아니라 우리 공주님입니다.', likes: Array(22).fill('u'), petType: '기타', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 30 } },
+  { id: 'd15', authorId: 'u15', authorName: '포근이', imageUrl: 'https://images.unsplash.com/photo-1491485880348-85d48a9e5312?w=800', caption: '이불 속이 제일 따뜻하고 좋아요..', likes: Array(110).fill('u'), petType: '고양이', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 14 } },
+  { id: 'd16', authorId: 'u16', authorName: '캠핑댕댕', imageUrl: 'https://images.unsplash.com/photo-1523626797181-8c5ae80d40c2?w=800', caption: '캠핑 와서 신난 우리 강쥐! 🏕️', likes: Array(58).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 7 } },
+  { id: 'd17', authorId: 'u17', authorName: '버틀러J', imageUrl: 'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=800', caption: '장난꾸러기 골든 리트리버의 아침 인사.', likes: Array(77).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 22 } },
+  { id: 'd18', authorId: 'u18', authorName: '나비엄마', imageUrl: 'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=800', caption: '창밖 구경하는 나비 뒷태가 치명적..', likes: Array(142).fill('u'), petType: '고양이', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 4 } },
+  { id: 'd19', authorId: 'u19', authorName: '해수매니아', imageUrl: 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=800', caption: '물멍하기 딱 좋은 날씨네요. 평화로움.', likes: Array(15).fill('u'), petType: '기타', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 28 } },
+  { id: 'd20', authorId: 'u20', authorName: '요정집사', imageUrl: 'https://images.unsplash.com/photo-1444464666168-49d633b867ad?w=800', caption: '어깨 위에 앉은 작은 천사입니다. 🐦', likes: Array(67).fill('u'), petType: '새', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 1 } },
 ];
 
 function PetmilyApp() {
+  // --- 상태 관리 ---
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [realPosts, setRealPosts] = useState([]);
@@ -160,12 +162,16 @@ function PetmilyApp() {
   const [isMoreLoading, setIsMoreLoading] = useState(false);
   const observerTarget = useRef(null);
 
-  // --- [FIX] isMainView 정의 ---
+  // --- 유틸리티 및 계산 로직 ---
+  const showToast = (msg) => {
+    setToast({ message: msg, visible: true });
+    setTimeout(() => setToast({ message: '', visible: false }), 2500);
+  };
+
   const isMainView = useMemo(() => {
     return ['feed', 'search', 'leaderboard', 'my_page', 'butler_profile'].includes(view);
   }, [view]);
 
-  // --- 데이터 정의 순서 ---
   const allPosts = useMemo(() => {
     const combined = [...realPosts, ...dummyPosts];
     return combined.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -212,31 +218,19 @@ function PetmilyApp() {
     return index !== -1 ? index + 1 : null;
   }, [rankingData, user]);
 
-  const loadingMessage = useMemo(() => {
-    const msgs = ["가족들을 부르는 중... 📣", "엉덩이 실룩실룩~ 🍑", "발도장 꾹 찍는 중... 👣"];
-    return msgs[Math.floor(Math.random() * msgs.length)];
-  }, []);
-
   const randomMoreLoadingMsg = useMemo(() => {
-    const moreLoadingMessages = ["꾹꾹이 중... 🐾", "간식 기다리는 중... 🍖", "친구들 냄새 맡는 중... 👃"];
+    const moreLoadingMessages = ["꾹꾹이 중... 🐾", "간식 기다리는 중... 🍖", "냄새 맡는 중... 👃", "발바닥 젤리 충전 중... ⚡"];
     return moreLoadingMessages[Math.floor(Math.random() * moreLoadingMessages.length)];
   }, [isMoreLoading]);
 
-  const showToast = (msg) => {
-    setToast({ message: msg, visible: true });
-    setTimeout(() => setToast({ message: '', visible: false }), 2500);
-  };
-
-  // --- Auth & Data Logic ---
+  // --- 인증 및 데이터 구독 ---
   useEffect(() => {
     const initAuth = async () => {
       try {
         await setPersistence(auth, browserLocalPersistence);
         onAuthStateChanged(auth, async (u) => {
           if (!u) {
-            try { await signInAnonymously(auth); } catch (authError) {
-              setLoading(false); 
-            }
+            await signInAnonymously(auth).catch(() => setLoading(false));
           } else {
             setUser(u);
             if (!u.isAnonymous) {
@@ -245,12 +239,8 @@ function PetmilyApp() {
               if (profileSnap.exists()) {
                 const data = profileSnap.data();
                 setProfile({ ...data, following: data.following || [], profilePic: data.profilePic || '' });
-              } else {
-                setView('profile_setup');
-              }
-            } else {
-              setProfile(DEFAULT_PROFILE);
-            }
+              } else setView('profile_setup');
+            } else setProfile(DEFAULT_PROFILE);
             setLoading(false);
           }
         });
@@ -269,6 +259,7 @@ function PetmilyApp() {
     return () => unsubscribe();
   }, [user]);
 
+  // --- 무한 스크롤 Observer ---
   useEffect(() => {
     if (view !== 'feed') return;
     const observer = new IntersectionObserver(
@@ -286,7 +277,7 @@ function PetmilyApp() {
     return () => observer.disconnect();
   }, [filteredPosts.length, visibleCount, view, isMoreLoading]);
 
-  // --- Handlers ---
+  // --- 핸들러 ---
   const handleHomeClick = () => {
     if (view === 'feed') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -302,9 +293,7 @@ function PetmilyApp() {
     setFeedScope('all');
     setPetFilter('all');
     const targetIdx = allPosts.findIndex(p => p.id === postId);
-    if (targetIdx !== -1 && targetIdx >= visibleCount) {
-      setVisibleCount(targetIdx + 5); 
-    }
+    if (targetIdx !== -1 && targetIdx >= visibleCount) setVisibleCount(targetIdx + 5); 
     setTimeout(() => {
       const el = document.getElementById(`post-${postId}`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -341,8 +330,7 @@ function PetmilyApp() {
       return;
     }
     try {
-      const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId);
-      await deleteDoc(postRef);
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId));
       showToast("게시물이 삭제되었습니다. 🐾");
     } catch (err) { showToast("삭제 오류 ❌"); }
   };
@@ -377,7 +365,7 @@ function PetmilyApp() {
       const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId);
       await updateDoc(postRef, { comments: arrayUnion(newComment) });
     }
-    showToast("댓글 완료! 🐾");
+    showToast("이야기를 남겼습니다! 🐾");
   };
 
   const handleFollow = async (butlerId) => {
@@ -409,19 +397,15 @@ function PetmilyApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const activePostForComment = useMemo(() => allPosts.find(p => p.id === selectedPostIdForComment), [allPosts, selectedPostIdForComment]);
-
-  useEffect(() => {
-    const fetchTarget = async () => {
-      if (view === 'butler_profile' && selectedButler?.id) {
-        const ref = doc(db, 'artifacts', appId, 'users', selectedButler.id, 'profile', 'info');
-        const snap = await getDoc(ref);
-        if (snap.exists()) setTargetButlerProfile(snap.data());
-        else setTargetButlerProfile(null);
-      }
-    };
-    fetchTarget();
-  }, [view, selectedButler]);
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-[#FDFCF8]">
+      <div className="flex flex-col items-center text-center">
+        <PawPrint className="w-16 h-16 text-orange-400 animate-bounce mb-4" />
+        <h1 className="text-3xl font-black text-stone-800 tracking-tighter italic mb-1 leading-none">Petmily</h1>
+        <p className="text-stone-400 font-bold text-sm animate-pulse tracking-tight">친구들을 부르는 중... 📣</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-[#FDFCF8] pb-32 font-sans text-stone-800 shadow-2xl overflow-x-hidden text-left border-x border-gray-100 relative selection:bg-orange-100">
@@ -439,11 +423,12 @@ function PetmilyApp() {
         <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm">
           <div className="px-5 py-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              {view !== 'feed' && (
-                <button onClick={() => setView('feed')} className="p-2 hover:bg-stone-100 rounded-full transition-all active:scale-90"><ArrowLeft size={22} /></button>
-              )}
+              {view !== 'feed' && <button onClick={() => setView('feed')} className="p-2 hover:bg-stone-100 rounded-full transition-all active:scale-90"><ArrowLeft size={22} /></button>}
               <div className="flex flex-col cursor-pointer" onClick={handleHomeClick}>
-                <h1 className="text-2xl font-black text-stone-800 tracking-tighter italic leading-none">Petmily</h1>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-2xl font-black text-stone-800 tracking-tighter italic leading-none">Petmily</h1>
+                  <span className="bg-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter shadow-sm mb-1">Beta</span>
+                </div>
                 {view === 'feed' && (
                     <div onClick={(e) => { e.stopPropagation(); setView('leaderboard'); }} className="flex items-center gap-1 mt-0.5 cursor-pointer group">
                       <Trophy size={10} className="text-orange-500 fill-orange-500" />
@@ -453,22 +438,14 @@ function PetmilyApp() {
                 )}
               </div>
             </div>
-            
             {user?.isAnonymous ? (
-              <button 
-                onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-full font-black text-xs border border-orange-100 shadow-sm active:scale-90 transition-all"
-              >
-                <LogIn size={16} />
-                로그인
-              </button>
+              <button onClick={() => setIsLoginModalOpen(true)} className="flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-full font-black text-xs border border-orange-100 shadow-sm active:scale-90 transition-all"><LogIn size={16} />로그인</button>
             ) : (
               <button onClick={() => setView('profile_edit')} className="w-9 h-9 bg-stone-50 rounded-full overflow-hidden border border-stone-100 active:scale-90 shadow-sm">
                 <img src={profile.profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.nickname || 'Petmily'}`} alt="me" className="w-full h-full object-cover" />
               </button>
             )}
           </div>
-
           {view === 'feed' && (
             <div className="px-5 pb-3 flex flex-col gap-3 animate-in fade-in duration-300">
               <div className="flex gap-4 border-b border-stone-50">
@@ -496,35 +473,28 @@ function PetmilyApp() {
               {filteredPosts.slice(0, visibleCount).map(post => (
                 <PostCard 
                   key={post.id} post={post} currentUser={user} myProfile={profile}
-                  onLike={() => handleLike(post.id, post.likes)} 
-                  onDelete={() => handleDeletePost(post.id)}
+                  onLike={() => handleLike(post.id, post.likes)} onDelete={() => handleDeletePost(post.id)}
                   onCommentClick={() => { setSelectedPostIdForComment(post.id); setIsCommentModalOpen(true); }} 
-                  onButlerClick={() => goToButler(post.authorId, post.authorName)} 
-                  onShareClick={() => handleShare(post)} 
+                  onButlerClick={() => goToButler(post.authorId, post.authorName)} onShareClick={() => handleShare(post)} 
                 />
               ))}
               <div ref={observerTarget} className="py-12 flex flex-col items-center justify-center gap-3">
-                {filteredPosts.length > visibleCount && (
-                  <>
-                    <Loader2 className="animate-spin text-orange-400" size={28} />
-                    <p className="text-xs font-black text-stone-400 animate-pulse">{randomMoreLoadingMsg}</p>
-                  </>
-                )}
+                {filteredPosts.length > visibleCount && (<><Loader2 className="animate-spin text-orange-400" size={28} /><p className="text-xs font-black text-stone-400 animate-pulse">{randomMoreLoadingMsg}</p></>)}
               </div>
             </div>
           )
         )}
-        
+
         {view === 'search' && (
           <div className="px-5 space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center gap-3 bg-white border border-stone-200 rounded-[2rem] p-5 shadow-lg focus-within:ring-4 focus-within:ring-orange-100 transition-all border-none shadow-sm"><Search size={22} className="text-stone-400" /><input type="text" placeholder="친구 닉네임이나 내용 검색..." className="w-full text-sm outline-none font-bold bg-transparent placeholder:text-stone-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
-            <div className="grid grid-cols-2 gap-3 pb-20">{filteredPosts.map(post => (<div key={post.id} onClick={() => handleJumpToPost(post.id)} className="aspect-square rounded-3xl overflow-hidden shadow-md active:scale-95 transition-transform border border-stone-50"><img src={post.imageUrl} className="w-full h-full object-cover" alt="search" /></div>))}</div>
+            <div className="grid grid-cols-2 gap-3 pb-20">{filteredPosts.map(post => (<div key={post.id} onClick={() => handleJumpToPost(post.id)} className="aspect-square rounded-[2rem] overflow-hidden shadow-md active:scale-95 transition-transform border border-stone-100 cursor-pointer"><img src={post.imageUrl} className="w-full h-full object-cover" alt="post" /></div>))}</div>
           </div>
         )}
 
         {view === 'leaderboard' && (
           <div className="px-5 space-y-8 animate-in slide-in-from-bottom-4 pb-20 text-left">
-            <div className="text-center py-6"><h2 className="text-3xl font-black italic tracking-tighter text-stone-800 leading-none">명예의 전당</h2><p className="text-stone-400 text-[10px] font-black uppercase tracking-widest mt-1 leading-none">Hall of Fame</p></div>
+            <div className="text-center py-6"><h2 className="text-3xl font-black italic tracking-tighter text-stone-800 leading-none">명예의 전당</h2><p className="text-stone-400 text-[10px] font-black uppercase tracking-widest mt-1">Hall of Fame</p></div>
             <div className="flex p-1.5 bg-stone-100 rounded-[1.8rem] gap-2 border border-stone-50 shadow-inner">
               <button onClick={() => setActiveRankingTab('new')} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.2rem] font-black text-sm transition-all duration-300 ${activeRankingTab === 'new' ? 'bg-white text-orange-500 shadow-md scale-100' : 'text-stone-400 scale-95'}`}><Zap size={18} /> 신규 (30일)</button>
               <button onClick={() => setActiveRankingTab('cumulative')} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.2rem] font-black text-sm transition-all duration-300 ${activeRankingTab === 'cumulative' ? 'bg-white text-orange-500 shadow-md scale-100' : 'text-stone-400 scale-95'}`}><History size={18} /> 누적 명예</button>
@@ -586,7 +556,7 @@ function PetmilyApp() {
                   <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
                     {(view === 'my_page' ? profile.pets : targetButlerProfile?.pets)?.length > 0 ? (
                       (view === 'my_page' ? profile.pets : targetButlerProfile?.pets).map((pet, i) => (
-                        <div key={i} className="flex-shrink-0 bg-white/5 border border-white/10 rounded-[2rem] p-5 w-[160px] backdrop-blur-md flex flex-col gap-1.5"><p className="text-[10px] text-orange-400 font-black uppercase tracking-tighter">#{pet.type}</p><p className="text-sm font-black text-white leading-none truncate">{pet.name}</p><p className="text-[11px] text-stone-500 font-bold leading-relaxed break-words line-clamp-2 min-h-[32px]">{pet.customType || '집사님의 사랑스러운 단짝 친구입니다!'}</p></div>
+                        <div key={i} className="flex-shrink-0 bg-white/5 border border-white/10 rounded-[2rem] p-5 w-[160px] backdrop-blur-md flex flex-col gap-1.5"><p className="text-[10px] text-orange-400 font-black uppercase tracking-tighter">#{pet.type}</p><p className="text-sm font-black text-white leading-none truncate">{pet.name}</p><p className="text-[11px] text-stone-500 font-bold leading-relaxed break-words line-clamp-2 min-h-[32px]">{pet.type === '기타' ? pet.customType : '집사님의 사랑스러운 친구!'}</p></div>
                       ))
                     ) : ( <p className="text-stone-600 text-xs font-bold italic py-2">아직 아이가 등록되지 않았어요 🐾</p> )}
                   </div>
@@ -594,15 +564,13 @@ function PetmilyApp() {
               </div>
               <div className="absolute -top-10 -right-10 w-64 h-64 bg-orange-500/10 rounded-full blur-[100px]"></div>
             </div>
-
             {view === 'my_page' && (
               <div className="flex p-1.5 bg-stone-100 rounded-[2rem] gap-2 border border-stone-50 shadow-inner">
                 <button onClick={() => setActiveProfileTab('activity')} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.5rem] font-black text-sm transition-all duration-300 ${activeProfileTab === 'activity' ? 'bg-white text-orange-500 shadow-md scale-100' : 'text-stone-400 scale-95'}`}><PawPrint size={18} className={activeProfileTab === 'activity' ? 'fill-orange-500' : ''} /> 꾹</button>
                 <button onClick={() => setActiveProfileTab('gallery')} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.5rem] font-black text-sm transition-all duration-300 ${activeProfileTab === 'gallery' ? 'bg-white text-orange-500 shadow-md scale-100' : 'text-stone-400 scale-95'}`}><ImageIcon size={18} /> 보물함</button>
               </div>
             )}
-
-            <div className="grid grid-cols-2 gap-3 pb-20">{filteredPosts.map(post => (<div key={post.id} onClick={() => handleJumpToPost(post.id)} className="aspect-square rounded-[2.2rem] overflow-hidden shadow-md active:scale-95 transition-transform border border-stone-100 cursor-pointer"><img src={post.imageUrl} className="w-full h-full object-cover" alt="post" /></div>))}</div>
+            <div className="grid grid-cols-2 gap-3 pb-20">{filteredPosts.map(post => (<div key={post.id} onClick={() => handleJumpToPost(post.id)} className="aspect-square rounded-[2rem] overflow-hidden shadow-md active:scale-95 transition-transform border border-stone-100 cursor-pointer"><img src={post.imageUrl} className="w-full h-full object-cover" alt="post" /></div>))}</div>
           </div>
         )}
 
@@ -691,23 +659,23 @@ function ProfileForm({ isEdit, initialData, onSave, onBack, onLogout }) {
   const updatePet = (id, field, value) => setPets(pets.map(p => p.id === id ? { ...p, [field]: value } : p));
   return (
     <div className="min-h-screen bg-white p-8 animate-in fade-in duration-500 pb-40 text-left">
-      <div className="flex justify-between items-center mb-10"><button onClick={onBack} className="p-3.5 bg-stone-50 rounded-full hover:bg-stone-100 active:scale-90"><ArrowLeft size={24} /></button><h2 className="text-3xl font-black text-stone-800 tracking-tighter italic leading-none">설정</h2><div className="w-10" /></div>
+      <div className="flex justify-between items-center mb-10"><button onClick={onBack} className="p-3.5 bg-stone-50 rounded-full hover:bg-stone-100 active:scale-90 transition-all"><ArrowLeft size={24} /></button><h2 className="text-3xl font-black text-stone-800 tracking-tighter italic leading-none">설정</h2><div className="w-10" /></div>
       <div className="space-y-12">
         <section className="flex flex-col items-center gap-4">
            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current.click()}>
-              <div className="w-28 h-28 rounded-[2.5rem] bg-stone-100 overflow-hidden border-4 border-white shadow-xl"><img src={profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${nickname || 'P'}`} alt="me" className="w-full h-full object-cover" /></div>
+              <div className="w-28 h-28 rounded-[2.5rem] bg-stone-100 overflow-hidden border-4 border-white shadow-xl transition-all hover:ring-8 hover:ring-orange-50"><img src={profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${nickname || 'P'}`} alt="me" className="w-full h-full object-cover" /></div>
               <div className="absolute bottom-0 right-0 p-2 bg-stone-900 text-white rounded-2xl border-4 border-white shadow-lg"><CameraIcon size={16} /></div>
            </div>
            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleProfilePicChange} />
            <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest leading-none">Touch to Change Photo</p>
         </section>
-        <section><label className="text-[12px] font-black text-stone-300 block mb-5 px-1 uppercase tracking-[0.3em]">Butler Name</label><input type="text" placeholder="집사 닉네임 입력" className="w-full bg-stone-50 border-none rounded-[1.8rem] p-6 text-base outline-none font-black shadow-stone-100" value={nickname} onChange={(e) => setNickname(e.target.value)} /></section>
+        <section><label className="text-[12px] font-black text-stone-300 block mb-5 px-1 uppercase tracking-[0.3em]">Butler Name</label><input type="text" placeholder="집사 닉네임 입력" className="w-full bg-stone-50 border-none rounded-[1.8rem] p-6 text-base outline-none font-black shadow-stone-100 focus:ring-4 focus:ring-orange-100 transition-all" value={nickname} onChange={(e) => setNickname(e.target.value)} /></section>
         <section className="space-y-8">
-          <div className="flex justify-between items-center px-1"><label className="text-[12px] font-black text-stone-300 uppercase tracking-[0.3em]">Family ({pets.length})</label><button onClick={addPet} className="flex items-center gap-2 text-[11px] font-black text-orange-500 bg-orange-50 px-5 py-2.5 rounded-full active:scale-95 transition-all"><Plus size={16} />아이 추가</button></div>
+          <div className="flex justify-between items-center px-1"><label className="text-[12px] font-black text-stone-300 uppercase tracking-[0.3em]">Family ({pets.length})</label><button onClick={addPet} className="flex items-center gap-2 text-[11px] font-black text-orange-500 bg-orange-50 px-5 py-2.5 rounded-full active:scale-95 transition-all shadow-sm"><Plus size={16} />아이 추가</button></div>
           {pets.map((pet, idx) => (
-            <div key={pet.id} className="p-7 bg-stone-50/80 border border-stone-100 rounded-[3rem] space-y-6 relative shadow-sm">
-              <button onClick={() => removePet(pet.id)} className="absolute top-6 right-6 p-2.5 text-stone-300 active:scale-75"><Trash2 size={20}/></button>
-              <div className="flex items-center gap-4"><div className="w-10 h-10 bg-stone-900 text-white rounded-[1.2rem] flex items-center justify-center font-black text-sm shadow-lg leading-none">{idx + 1}</div><input type="text" placeholder="아이 이름" className="bg-transparent border-b-2 border-stone-100 focus:border-orange-400 outline-none text-lg font-black p-1 w-full truncate" value={pet.name} onChange={(e) => updatePet(pet.id, 'name', e.target.value)} /></div>
+            <div key={pet.id} className="p-7 bg-stone-50/80 border border-stone-100 rounded-[3rem] space-y-6 relative shadow-sm animate-in zoom-in-95">
+              <button onClick={() => removePet(pet.id)} className="absolute top-6 right-6 p-2.5 text-stone-300 active:scale-75 hover:text-red-400 transition-colors"><Trash2 size={20}/></button>
+              <div className="flex items-center gap-4"><div className="w-10 h-10 bg-stone-900 text-white rounded-[1.2rem] flex items-center justify-center font-black text-sm shadow-lg leading-none">{idx + 1}</div><input type="text" placeholder="아이 이름" className="bg-transparent border-b-2 border-stone-100 focus:border-orange-400 outline-none text-lg font-black p-1 w-full truncate transition-all" value={pet.name} onChange={(e) => updatePet(pet.id, 'name', e.target.value)} /></div>
               <div className="flex flex-wrap gap-2.5">{PET_OPTIONS.map(opt => (<button key={opt.id} onClick={() => updatePet(pet.id, 'type', opt.id)} className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-[11px] font-black transition-all border-2 active:scale-95 ${pet.type === opt.id ? `${opt.color} border-current scale-105 shadow-md shadow-orange-100` : 'bg-white text-stone-400 border-stone-100'}`}>{opt.icon}<span>{opt.label}</span></button>))}</div>
               {pet.type === '기타' && (
                 <input type="text" placeholder="정확한 종을 입력해주세요 (예: 거북이, 파이리)" className="w-full bg-white border-2 border-stone-100 rounded-[1.5rem] p-5 text-sm outline-none focus:border-orange-400 font-black animate-in slide-in-from-top-2" value={pet.customType} onChange={(e) => updatePet(pet.id, 'customType', e.target.value)} />
@@ -715,8 +683,8 @@ function ProfileForm({ isEdit, initialData, onSave, onBack, onLogout }) {
             </div>
           ))}
         </section>
-        <button onClick={() => onSave({ nickname, pets, profilePic })} disabled={!nickname} className="w-full bg-stone-900 text-white py-6 rounded-[2.5rem] font-black shadow-2xl active:scale-95 disabled:bg-stone-200 uppercase tracking-[0.2em] text-[15px]">저장하고 시작하기</button>
-        {isEdit && <button onClick={onLogout} className="w-full py-4 text-stone-300 font-black text-[13px] flex items-center justify-center gap-2 mt-6 active:scale-90 underline underline-offset-8 uppercase tracking-widest">로그아웃</button>}
+        <button onClick={() => onSave({ nickname, pets, profilePic })} disabled={!nickname} className="w-full bg-stone-900 text-white py-6 rounded-[2.5rem] font-black shadow-2xl active:scale-95 disabled:bg-stone-200 uppercase tracking-[0.2em] text-[15px] transition-all">저장하고 시작하기</button>
+        {isEdit && <button onClick={onLogout} className="w-full py-4 text-stone-300 font-black text-[13px] flex items-center justify-center gap-2 mt-6 active:scale-90 underline underline-offset-8 uppercase tracking-widest hover:text-stone-500 transition-colors">로그아웃</button>}
       </div>
     </div>
   );
@@ -737,13 +705,13 @@ function CreateModal({ onClose, onSave, userPets }) {
   };
   const handleSubmit = async () => { setIsSubmitting(true); await onSave({ caption: desc, imageUrl: imgData, petType: selectedPetType }); setIsSubmitting(false); };
   return (
-    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="w-full max-w-md bg-white rounded-t-[4rem] p-10 animate-in slide-in-from-bottom duration-500 shadow-2xl max-h-[95vh] overflow-y-auto text-left">
-        <div className="flex justify-between items-center mb-10"><h2 className="text-3xl font-black text-stone-800 tracking-tighter italic leading-none">새 글 작성 🐾</h2><button onClick={onClose} className="p-3.5 bg-stone-100 rounded-full text-stone-400 active:scale-90"><X size={22} /></button></div>
+    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300 p-0">
+      <div className="w-full max-w-md bg-white rounded-t-[4rem] p-10 animate-in slide-in-from-bottom duration-500 shadow-2xl max-h-[95vh] overflow-y-auto text-left scrollbar-hide">
+        <div className="flex justify-between items-center mb-10"><h2 className="text-3xl font-black text-stone-800 tracking-tighter italic leading-none">새 글 작성 🐾</h2><button onClick={onClose} className="p-3.5 bg-stone-100 rounded-full text-stone-400 active:scale-90 transition-all hover:bg-stone-200"><X size={22} /></button></div>
         <div className="space-y-8">
-          <section><label className="text-[10px] font-black text-stone-300 uppercase tracking-widest block mb-4">누구의 사진인가요?</label><div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">{['강아지', '고양이', '새', '햄스터', '기타'].map(type => (<button key={type} onClick={() => setSelectedPetType(type)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${selectedPetType === type ? 'bg-orange-500 text-white border-orange-500' : 'bg-stone-50 text-stone-400 border-stone-100'}`}>{type}</button>))}</div></section>
+          <section><label className="text-[10px] font-black text-stone-300 uppercase tracking-widest block mb-4">누구의 사진인가요?</label><div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">{['강아지', '고양이', '새', '햄스터', '기타'].map(type => (<button key={type} onClick={() => setSelectedPetType(type)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${selectedPetType === type ? 'bg-orange-500 text-white border-orange-500 shadow-md' : 'bg-stone-50 text-stone-400 border-stone-100'}`}>{type}</button>))}</div></section>
           <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-          {imgData ? (<div className="relative aspect-square rounded-[3.5rem] overflow-hidden border-8 border-stone-50 shadow-2xl group"><img src={imgData} className="w-full h-full object-cover" alt="prev" /><button onClick={() => setImgData('')} className="absolute top-6 right-6 p-4 bg-black/60 text-white rounded-full backdrop-blur-md active:scale-90 shadow-lg"><X size={18} /></button></div>) : (<div onClick={() => fileInputRef.current.click()} className="w-full aspect-square bg-stone-50 rounded-[3.5rem] border-4 border-dashed border-stone-200 flex flex-col items-center justify-center cursor-pointer hover:bg-stone-100 transition-all gap-5 active:scale-95 group shadow-inner"><div className="p-7 bg-white rounded-full shadow-2xl text-orange-500 group-hover:scale-110 transition-transform"><Upload size={40} /></div><p className="text-lg font-black text-stone-500 tracking-tight leading-none">사진첩 열기</p></div>)}
+          {imgData ? (<div className="relative aspect-square rounded-[3.5rem] overflow-hidden border-8 border-stone-50 shadow-2xl group"><img src={imgData} className="w-full h-full object-cover" alt="prev" /><button onClick={() => setImgData('')} className="absolute top-6 right-6 p-4 bg-black/60 text-white rounded-full active:scale-90 shadow-lg backdrop-blur-md transition-all hover:bg-black/80"><X size={18} /></button></div>) : (<div onClick={() => fileInputRef.current.click()} className="w-full aspect-square bg-stone-50 rounded-[3.5rem] border-4 border-dashed border-stone-200 flex flex-col items-center justify-center cursor-pointer hover:bg-stone-100 transition-all gap-5 active:scale-95 group shadow-inner"><div className="p-7 bg-white rounded-full shadow-2xl text-orange-500 group-hover:scale-110 transition-transform"><Upload size={40} /></div><p className="text-lg font-black text-stone-500 tracking-tight leading-none">사진첩 열기</p></div>)}
           <textarea rows="3" placeholder="아이의 매력을 한마디로!" className="w-full bg-stone-50 rounded-[2rem] p-6 text-base outline-none resize-none shadow-inner font-black focus:ring-4 focus:ring-orange-100 transition-all border-none" value={desc} onChange={(e) => setDesc(e.target.value)} />
           <button onClick={handleSubmit} disabled={!desc || !imgData || isSubmitting} className="w-full bg-stone-900 text-white py-7 rounded-[2.5rem] font-black shadow-2xl active:scale-95 transition-all mb-4 uppercase tracking-[0.3em] text-[15px] disabled:bg-stone-300">{isSubmitting ? "게시 중..." : "게시하기"}</button>
         </div>
@@ -758,7 +726,7 @@ function CommentModal({ post, onClose, onAddComment }) {
   return (
     <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
       <div className="w-full max-w-md bg-white rounded-t-[4rem] p-10 animate-in slide-in-from-bottom duration-500 flex flex-col h-[90vh] shadow-2xl text-left">
-        <div className="flex justify-between items-center mb-10"><div className="flex items-center gap-3"><MessageCircle size={26} className="text-indigo-500" /><h3 className="text-2xl font-black text-stone-800 tracking-tighter italic leading-none">이야기 나누기</h3></div><button onClick={onClose} className="p-3.5 bg-stone-100 rounded-full text-stone-400 hover:bg-stone-200 transition-all active:scale-90"><X size={22} /></button></div>
+        <div className="flex justify-between items-center mb-10"><div className="flex items-center gap-3"><MessageCircle size={26} className="text-indigo-500" /><h3 className="text-2xl font-black text-stone-800 tracking-tighter italic leading-none">이야기 나누기</h3></div><button onClick={onClose} className="p-3.5 bg-stone-100 rounded-full text-stone-400 active:scale-90 hover:bg-stone-200 transition-all"><X size={22} /></button></div>
         <div className="flex-1 overflow-y-auto space-y-8 px-2 pb-10 scrollbar-hide">
           {(!post.comments || post.comments.length === 0) ? (<div className="text-center py-32"><Sparkles className="mx-auto text-stone-100 mb-6" size={64} /><p className="text-stone-300 font-black italic text-xl leading-snug tracking-tight">첫 응원을 남겨보세요! 🐾</p></div>) : (post.comments.map((c, i) => (<div key={i} className="flex gap-5 animate-in fade-in slide-in-from-left-3 duration-300"><div className="w-11 h-11 rounded-full bg-stone-50 flex-shrink-0 overflow-hidden border border-stone-100 shadow-sm"><img src={`https://api.dicebear.com/7.x/initials/svg?seed=${c.name}`} alt="av" /></div><div className="flex-1"><div className="bg-stone-50 p-5 rounded-[2.2rem] rounded-tl-none shadow-sm"><p className="text-[12px] font-black text-stone-400 mb-1 uppercase tracking-widest leading-none truncate">{c.name}</p><p className="text-[15px] text-stone-800 font-bold leading-relaxed break-words">{c.text}</p></div></div></div>)))}
         </div>
@@ -785,7 +753,7 @@ function LoginModal({ onClose, onLogin }) {
   );
 }
 
-export default function Root() {
+export default function App() {
   return (
     <ErrorBoundary>
       <PetmilyApp />
