@@ -53,7 +53,8 @@ import {
   Bird,
   Ghost,
   Plus,
-  Trash2
+  Trash2,
+  Share2
 } from 'lucide-react';
 
 // Firebase 설정
@@ -176,6 +177,25 @@ export default function App() {
     return combined.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [realPosts, dummyPosts]);
 
+  // 공유된 게시글 처리 (Deep Linking)
+  useEffect(() => {
+    if (allPosts.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const sharedPostId = params.get('postId');
+      if (sharedPostId) {
+        // 해당 게시글로 스크롤
+        setTimeout(() => {
+          const el = document.getElementById(`post-${sharedPostId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // 스크롤 후 URL 파라미터 조용히 제거 (선택 사항)
+            // window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }, 1000);
+      }
+    }
+  }, [allPosts]);
+
   // 랭킹 데이터 계산
   const rankingData = useMemo(() => {
     const thirtyDaysAgo = Date.now() / 1000 - 30 * 24 * 60 * 60;
@@ -256,8 +276,7 @@ export default function App() {
       setView('feed');
       showToast("게시되었습니다! ✨");
     } catch (err) {
-      console.error("게시 실패:", err);
-      showToast("게시 실패! 권한이나 용량을 확인해주세요. ❌");
+      showToast("게시 실패! 사진 용량을 확인하세요. ❌");
     }
   };
 
@@ -274,10 +293,29 @@ export default function App() {
     } catch (err) { console.error(err); }
   };
 
+  const handleShare = (postId) => {
+    const url = `${window.location.origin}${window.location.pathname}?postId=${postId}`;
+    const textArea = document.createElement("textarea");
+    textArea.value = url;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      showToast("공유 링크가 복사되었습니다! 🐾");
+    } catch (err) {
+      showToast("링크 복사 실패 ❌");
+    }
+    document.body.removeChild(textArea);
+  };
+
   const filteredPosts = allPosts.filter(post => {
     if (view === 'my_page') {
-      if (activeProfileTab === 'gallery') return post.authorId === user?.uid;
-      if (activeProfileTab === 'activity') return (post.likes || []).includes(user?.uid);
+      if (activeProfileTab === 'activity') {
+        return (post.likes || []).includes(user?.uid) && post.authorId !== user?.uid;
+      }
+      if (activeProfileTab === 'gallery') {
+        return post.authorId === user?.uid;
+      }
     }
     if (view === 'butler_profile') return post.authorId === selectedButler?.id;
     if (view === 'search') {
@@ -311,12 +349,11 @@ export default function App() {
         </div>
       )}
 
-      {/* 인앱 브라우저 안내 */}
       {isInAppBrowser && (
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] p-8 text-center shadow-2xl border-t-8 border-orange-500 max-w-[320px]">
             <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-6"><ExternalLink className="text-orange-500" size={32} /></div>
-            <h2 className="text-xl font-black mb-3 tracking-tight text-stone-800 leading-none text-left">외부 브라우저 권장</h2>
+            <h2 className="text-xl font-black mb-3 tracking-tight text-stone-800 leading-none">외부 브라우저 권장</h2>
             <p className="text-stone-500 text-sm leading-relaxed mb-8 text-left">인앱 브라우저에서는 <b>구글 로그인</b>이 제한되어 서비스 이용이 어려워요!<br/><span className="text-orange-600 font-bold underline decoration-orange-200">크롬이나 사파리</span>로 다시 열까요?</p>
             <div className="space-y-3">
               <button onClick={() => { const url = window.location.href; window.location.href = `googlechrome://navigate?url=${url}`; setTimeout(() => { window.location.href = url; }, 500); }} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-lg">브라우저로 바로가기</button>
@@ -358,6 +395,7 @@ export default function App() {
               onLike={() => handleLike(post.id, post.likes)} 
               onCommentClick={() => { setSelectedPostIdForComment(post.id); setIsCommentModalOpen(true); }}
               onButlerClick={() => goToButler(post.authorId, post.authorName)}
+              onShareClick={() => handleShare(post.id)}
             />
           ))
         )}
@@ -422,16 +460,10 @@ export default function App() {
 
             {view === 'my_page' && (
               <div className="flex p-1.5 bg-stone-100 rounded-[1.8rem] gap-2 border border-stone-50 shadow-inner">
-                <button 
-                  onClick={() => setActiveProfileTab('activity')} 
-                  className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.2rem] font-black text-sm transition-all duration-300 ${activeProfileTab === 'activity' ? 'bg-white text-orange-500 shadow-lg scale-100' : 'text-stone-400 scale-95 hover:text-stone-600'}`}
-                >
+                <button onClick={() => setActiveProfileTab('activity')} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.2rem] font-black text-sm transition-all duration-300 ${activeProfileTab === 'activity' ? 'bg-white text-orange-500 shadow-lg scale-100' : 'text-stone-400 scale-95 hover:text-stone-600'}`}>
                   <PawPrint size={18} className={activeProfileTab === 'activity' ? 'fill-orange-500' : ''} /> 내가 꾹한 글
                 </button>
-                <button 
-                  onClick={() => setActiveProfileTab('gallery')} 
-                  className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.2rem] font-black text-sm transition-all duration-300 ${activeProfileTab === 'gallery' ? 'bg-white text-orange-500 shadow-lg scale-100' : 'text-stone-400 scale-95 hover:text-stone-600'}`}
-                >
+                <button onClick={() => setActiveProfileTab('gallery')} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.2rem] font-black text-sm transition-all duration-300 ${activeProfileTab === 'gallery' ? 'bg-white text-orange-500 shadow-lg scale-100' : 'text-stone-400 scale-95 hover:text-stone-600'}`}>
                   <ImageIcon size={18} /> 내 보물함
                 </button>
               </div>
@@ -457,22 +489,16 @@ export default function App() {
         )}
       </main>
 
-      {/* 하단 네비게이션 */}
-      {isMainView && (
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] bg-stone-900/95 backdrop-blur-xl px-2 py-3 rounded-[2.2rem] flex justify-between items-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] z-[130] border border-white/10 ring-1 ring-white/5 animate-in slide-in-from-bottom-4 duration-500">
-          <button onClick={() => setView('feed')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'feed' ? 'text-white' : 'text-stone-500'}`}><Home size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">홈</span></button>
-          <button onClick={() => setView('search')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'search' ? 'text-white' : 'text-stone-500'}`}><Search size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">찾기</span></button>
-          
-          <div className="flex-1 flex justify-center">
-            <button onClick={() => user.isAnonymous ? setIsLoginModalOpen(true) : setIsCreateModalOpen(true)} className="bg-gradient-to-br from-orange-400 to-orange-600 text-white p-3.5 rounded-2xl shadow-[0_10px_20px_-5px_rgba(249,115,22,0.5)] border-2 border-white/10 active:scale-75 transition-transform"><PlusSquare size={24} /></button>
-          </div>
-          
-          <button onClick={() => { setView('my_page'); setActiveProfileTab('activity'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'activity' ? 'text-white' : 'text-stone-500'}`}><PawPrint size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">꾹</span></button>
-          <button onClick={() => { setView('my_page'); setActiveProfileTab('gallery'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'gallery' ? 'text-white' : 'text-stone-500'}`}><User size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">보물함</span></button>
-        </nav>
-      )}
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] bg-stone-900/95 backdrop-blur-xl px-2 py-3 rounded-[2.2rem] flex justify-between items-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] z-[130] border border-white/10 ring-1 ring-white/5 animate-in slide-in-from-bottom-4 duration-500">
+        <button onClick={() => setView('feed')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'feed' ? 'text-white' : 'text-stone-500'}`}><Home size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">홈</span></button>
+        <button onClick={() => setView('search')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'search' ? 'text-white' : 'text-stone-500'}`}><Search size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">찾기</span></button>
+        <div className="flex-1 flex justify-center">
+          <button onClick={() => user.isAnonymous ? setIsLoginModalOpen(true) : setIsCreateModalOpen(true)} className="bg-gradient-to-br from-orange-400 to-orange-600 text-white p-3.5 rounded-2xl shadow-[0_10px_20px_-5px_rgba(249,115,22,0.5)] border-2 border-white/10 active:scale-75 transition-transform"><PlusSquare size={24} /></button>
+        </div>
+        <button onClick={() => { setView('my_page'); setActiveProfileTab('activity'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'activity' ? 'text-white' : 'text-stone-500'}`}><PawPrint size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">꾹</span></button>
+        <button onClick={() => { setView('my_page'); setActiveProfileTab('gallery'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'gallery' ? 'text-white' : 'text-stone-500'}`}><User size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">보물함</span></button>
+      </nav>
 
-      {/* 모달 */}
       {isCreateModalOpen && <CreateModal onClose={() => setIsCreateModalOpen(false)} onSave={handleSavePost} userName={profile?.nickname || user?.displayName || ''} />}
       {isLoginModalOpen && <LoginModal onClose={() => setIsLoginModalOpen(false)} onLogin={async () => { const provider = new GoogleAuthProvider(); try { await signInWithPopup(auth, provider); setIsLoginModalOpen(false); showToast("로그인 성공!"); } catch(e) { console.error(e); }}} />}
       {isCommentModalOpen && <CommentModal post={activePostForComment} onClose={() => {setIsCommentModalOpen(false); setSelectedPostIdForComment(null);}} onAddComment={handleAddComment} />}
@@ -480,7 +506,7 @@ export default function App() {
   );
 }
 
-function PostCard({ post, currentUser, onLike, onCommentClick, onButlerClick }) {
+function PostCard({ post, currentUser, onLike, onCommentClick, onButlerClick, onShareClick }) {
   const [showOverlayPaw, setShowOverlayPaw] = useState(false);
   const isLiked = (post.likes || []).includes(currentUser?.uid);
 
@@ -520,7 +546,7 @@ function PostCard({ post, currentUser, onLike, onCommentClick, onButlerClick }) 
         <div className="flex gap-6 mb-4 items-center">
           <PawPrint onClick={handleBtnClick} size={32} className={`cursor-pointer transition-all active:scale-150 ${isLiked ? 'fill-orange-500 text-orange-500 drop-shadow-md' : 'text-stone-800 hover:text-orange-400'}`} />
           <MessageSquare onClick={onCommentClick} size={30} className="text-stone-800 cursor-pointer active:scale-125 transition-transform hover:text-indigo-500" />
-          <Send size={28} className="text-stone-800 ml-auto opacity-20" />
+          <Send onClick={onShareClick} size={28} className="text-stone-800 ml-auto opacity-50 hover:opacity-100 cursor-pointer active:scale-125 transition-all" />
         </div>
         <p className="text-[12px] font-black text-stone-400 mb-2 uppercase tracking-tighter leading-none">{(post.likes || []).length} Awesome Pet Lovers 꾹!</p>
         <p className="text-sm leading-relaxed">
@@ -539,11 +565,11 @@ function ProfileForm({ isEdit, initialData, onSave, onBack, onLogout }) {
   const [nickname, setNickname] = useState(initialData?.nickname || '');
   const [pets, setPets] = useState(initialData?.pets || []);
   const PET_OPTIONS = [
-    { id: '강아지', label: '산책 광인', icon: <Dog size={16}/>, color: 'bg-amber-100 text-amber-700' },
-    { id: '고양이', label: '지구 정복자', icon: <Cat size={16}/>, color: 'bg-indigo-100 text-indigo-700' },
+    { id: '강아지', label: '강아지(산책광인)', icon: <Dog size={16}/>, color: 'bg-amber-100 text-amber-700' },
+    { id: '고양이', label: '고양이(지구정복자)', icon: <Cat size={16}/>, color: 'bg-indigo-100 text-indigo-700' },
     { id: '새', label: '요정', icon: <Bird size={16}/>, color: 'bg-sky-100 text-sky-700' },
     { id: '햄스터', label: '간식 도둑', icon: <Sparkles size={16}/>, color: 'bg-rose-100 text-rose-700' },
-    { id: '기타', label: '포켓몬', icon: <Ghost size={16}/>, color: 'bg-stone-100 text-stone-700' },
+    { id: '기타', label: '전설의포켓몬(기타)', icon: <Ghost size={16}/>, color: 'bg-stone-100 text-stone-700' },
   ];
   const addPet = () => setPets([...pets, { id: Date.now(), name: '', type: '강아지', customType: '' }]);
   const removePet = (id) => setPets(pets.filter(p => p.id !== id));
@@ -561,6 +587,7 @@ function ProfileForm({ isEdit, initialData, onSave, onBack, onLogout }) {
               <button onClick={() => removePet(pet.id)} className="absolute top-6 right-6 p-2.5 text-stone-300 hover:text-red-400 transition-colors active:scale-75"><Trash2 size={20}/></button>
               <div className="flex items-center gap-4"><div className="w-10 h-10 bg-stone-900 text-white rounded-[1.2rem] flex items-center justify-center font-black text-sm shadow-lg leading-none">{idx + 1}</div><input type="text" placeholder="아이 이름" className="bg-transparent border-b-2 border-stone-100 focus:border-orange-400 outline-none text-lg font-black p-1 w-full transition-all" value={pet.name} onChange={(e) => updatePet(pet.id, 'name', e.target.value)} /></div>
               <div className="flex flex-wrap gap-2.5">{PET_OPTIONS.map(opt => (<button key={opt.id} onClick={() => updatePet(pet.id, 'type', opt.id)} className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl text-[11px] font-black transition-all border-2 active:scale-95 ${pet.type === opt.id ? `${opt.color} border-current scale-105 shadow-md shadow-orange-100` : 'bg-white text-stone-400 border-stone-100'}`}>{opt.icon}<span>{opt.label}</span></button>))}</div>
+              {pet.type === '기타' && <input type="text" placeholder="정확한 종을 알려주세요 (예: 햄스터, 거북이)" className="w-full bg-white border-2 border-stone-100 rounded-[1.5rem] p-5 text-sm outline-none focus:border-orange-400 font-black shadow-sm animate-in slide-in-from-top-2" value={pet.customType} onChange={(e) => updatePet(pet.id, 'customType', e.target.value)} />}
             </div>
           ))}
         </section>
@@ -580,7 +607,7 @@ function CreateModal({ onClose, onSave, userName }) {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 800000) { // 약 0.8MB 제한 (Firestore 문서 한도 대비 여유분)
+      if (file.size > 800000) { 
         alert("사진 용량이 너무 큽니다. 더 작은 사진을 선택해주세요! 🐾");
         return;
       }
@@ -604,11 +631,7 @@ function CreateModal({ onClose, onSave, userName }) {
           <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
           {imgData ? (<div className="relative aspect-square rounded-[3rem] overflow-hidden border-8 border-stone-50 shadow-2xl group"><img src={imgData} className="w-full h-full object-cover" alt="preview" /><button onClick={() => setImgData('')} className="absolute top-6 right-6 p-4 bg-black/60 text-white rounded-full backdrop-blur-md transition-all active:scale-90 shadow-lg"><X size={18} /></button></div>) : (<div onClick={() => fileInputRef.current.click()} className="w-full aspect-square bg-stone-50 rounded-[3.5rem] border-4 border-dashed border-stone-200 flex flex-col items-center justify-center cursor-pointer hover:bg-stone-100 transition-all gap-5 active:scale-95 group"><div className="p-7 bg-white rounded-full shadow-2xl text-orange-500 group-hover:scale-110 transition-transform"><Upload size={40} /></div><p className="text-lg font-black text-stone-500 tracking-tight leading-none">사진첩 열기</p></div>)}
           <textarea rows="3" placeholder="아이의 매력을 한마디로!" className="w-full bg-stone-50 rounded-[1.8rem] p-6 text-base outline-none resize-none shadow-inner font-black focus:ring-4 focus:ring-orange-100 transition-all border-none" value={desc} onChange={(e) => setDesc(e.target.value)} />
-          <button 
-            onClick={handleSubmit} 
-            disabled={!desc || !imgData || isSubmitting} 
-            className="w-full bg-stone-900 text-white py-7 rounded-[2.5rem] font-black shadow-2xl active:scale-95 transition-all mb-4 uppercase tracking-[0.3em] text-[15px] leading-none disabled:bg-stone-300"
-          >
+          <button onClick={handleSubmit} disabled={!desc || !imgData || isSubmitting} className="w-full bg-stone-900 text-white py-7 rounded-[2.5rem] font-black shadow-2xl active:scale-95 transition-all mb-4 uppercase tracking-[0.3em] text-[15px] leading-none disabled:bg-stone-300">
             {isSubmitting ? "아이의 추억을 새기는 중..." : "게시하기"}
           </button>
         </div>
