@@ -73,7 +73,11 @@ import {
   Sparkle
 } from 'lucide-react';
 
-// --- 1. 전역 상수 및 헬퍼 로직 (ReferenceError 원천 봉쇄) ---
+// --- 1. 전역 상수 및 유틸리티 (ReferenceError 원천 차단) ---
+const handleImgError = (e) => {
+  e.target.src = "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=petmily&backgroundColor=fdfcf8";
+};
+
 const PET_TYPES = [
   { id: 'all', label: '전체', icon: <Sparkles size={14}/> },
   { id: '강아지', label: '강아지', icon: <Dog size={14}/> },
@@ -87,11 +91,7 @@ const MORE_LOADING_MESSAGES = ["꾹꾹이 중... 🐾", "간식 기다리는 중
 
 const DEFAULT_PROFILE = { nickname: '', pets: [], following: [], profilePic: '' };
 
-const handleImgError = (e) => {
-  e.target.src = "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=petmily&backgroundColor=fdfcf8";
-};
-
-// [QA] 중복 없는 고화질 반려동물 샘플 데이터 20건
+// [QA] 중복 없는 고화질 반려동물 샘플 데이터 20건 (안정적인 이미지 ID 사용)
 const INITIAL_DUMMY_POSTS = [
   { id: 'd1', authorId: 'u1', authorName: '산책대장', imageUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800', caption: '우리 뽀삐 윙크 발사! 😉', likes: Array(145).fill('u'), petType: '강아지', comments: [], createdAt: { seconds: Date.now()/1000 - 86400 * 1 } },
   { id: 'd2', authorId: 'u2', authorName: '박스냥이', imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', caption: '상자만 보면 환장하는 우리 애기..', likes: Array(172).fill('u'), petType: '고양이', aiAnalysis: "집사야, 이 상자는 이제 내꺼다냥! 아늑해서 너무 기분이 좋다냥~ 🐾", createdAt: { seconds: Date.now()/1000 - 86400 * 2 } },
@@ -123,8 +123,8 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) return (
       <div className="h-screen flex flex-col items-center justify-center p-10 text-center bg-[#FDFCF8]">
         <AlertCircle size={48} className="text-red-500 mb-4" />
-        <h2 className="text-xl font-black mb-2 text-stone-800">시스템 복구 중... 🐾</h2>
-        <p className="text-stone-500 text-sm mb-6 leading-relaxed">예상치 못한 오류가 발생했습니다.<br/>새로고침으로 다시 시작해 보세요.</p>
+        <h2 className="text-xl font-black mb-2 text-stone-800 tracking-tight">잠시만요! 🐾</h2>
+        <p className="text-stone-500 text-sm mb-6 leading-relaxed">작은 오류가 발생했습니다.<br/>페이지를 새로고침하면 다시 연결됩니다.</p>
         <button onClick={() => window.location.reload()} className="px-8 py-3.5 bg-stone-900 text-white rounded-[1.5rem] font-bold shadow-xl active:scale-95 transition-all">앱 다시 열기</button>
       </div>
     );
@@ -162,7 +162,7 @@ function PetmilyApp() {
     setTimeout(() => setToast({ message: '', visible: false }), 2500);
   };
 
-  // --- 핵심 데이터 정렬 및 필터링 ---
+  // --- 핵심 데이터 정렬 및 필터링 (메모이제이션) ---
   const allPosts = useMemo(() => {
     const combined = [...realPosts, ...dummyPosts];
     return combined.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -211,9 +211,9 @@ function PetmilyApp() {
 
   const isMainView = useMemo(() => ['feed', 'search', 'leaderboard', 'my_page', 'butler_profile'].includes(view), [view]);
 
-  // --- Gemini AI 분석 모듈 ---
+  // --- Gemini AI 분석 로직 ---
   const callGeminiAI = async (imageUrl) => {
-    const apiKey = ""; // Canvas 환경 제공
+    const apiKey = ""; 
     const systemPrompt = "너는 전문적인 반려동물 행동 전문가야. 이미지 속 동물의 표정과 자세를 보고, 감정을 다정하게 1~2문장으로 한국어로 분석해줘. 이모지를 섞어줘.";
     try {
       let payload;
@@ -234,7 +234,7 @@ function PetmilyApp() {
         body: JSON.stringify(payload)
       });
       const result = await response.json();
-      return result.candidates?.[0]?.content?.parts?.[0]?.text || "마음을 읽기 어려워요. 🐾";
+      return result.candidates?.[0]?.content?.parts?.[0]?.text || "마음을 읽지 못했어요. 🐾";
     } catch (err) { return "분석에 실패했지만 마음은 전해졌어요! ❌"; }
   };
 
@@ -261,9 +261,20 @@ function PetmilyApp() {
     }, 300);
   };
 
+  // [전문가] 로그아웃 로직 강화: 상태 즉시 초기화
   const handleLogout = async () => {
-    try { setLoading(true); await signOut(auth); setView('feed'); showToast("로그아웃 되었습니다! 🐾"); } 
-    catch (e) { showToast("실패 ❌"); setLoading(false); }
+    try { 
+      setLoading(true); 
+      await signOut(auth); 
+      setUser(null);
+      setProfile(DEFAULT_PROFILE);
+      setView('feed'); 
+      showToast("로그아웃 되었습니다! 🐾"); 
+    } 
+    catch (e) { 
+      showToast("실패 ❌"); 
+      setLoading(false); 
+    }
   };
 
   const handleDeletePost = async (postId) => {
@@ -308,16 +319,37 @@ function PetmilyApp() {
     showToast("이야기 완료! 🐾");
   };
 
+  const handleFollow = async (butlerId) => {
+    if (!user || user.isAnonymous) { setIsLoginModalOpen(true); return; }
+    if (user.uid === butlerId) return;
+    const isFollowing = profile.following?.includes(butlerId);
+    const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info');
+    try {
+      await updateDoc(profileRef, { following: isFollowing ? arrayRemove(butlerId) : arrayUnion(butlerId) });
+      setProfile(prev => ({ ...prev, following: isFollowing ? prev.following.filter(id => id !== butlerId) : [...(prev.following || []), butlerId] }));
+      showToast(isFollowing ? "팔로우 취소" : "팔로우 시작! ✨");
+    } catch (e) { showToast("오류 발생 ❌"); }
+  };
+
   const goToButler = (id, name) => { setSelectedButler({ id, name }); setView('butler_profile'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   // --- Effects ---
   useEffect(() => {
     const initAuth = async () => {
+      // [QA] 무한 로딩 방지용 안전 타이머
+      const safetyTimer = setTimeout(() => {
+        if (loading) {
+          setLoading(false);
+          showToast("연결 중... 잠시 후 자동으로 다시 시도합니다! 🐾");
+        }
+      }, 6000);
+
       try {
         const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
         if (firebaseConfigStr) {
           await setPersistence(auth, browserLocalPersistence);
           onAuthStateChanged(auth, async (u) => {
+            clearTimeout(safetyTimer);
             if (!u) {
               const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
               if (token) await signInWithCustomToken(auth, token).catch(() => signInAnonymously(auth));
@@ -335,6 +367,9 @@ function PetmilyApp() {
               setLoading(false);
             }
           });
+        } else {
+           clearTimeout(safetyTimer);
+           setLoading(false);
         }
       } catch (err) { setLoading(false); }
     };
@@ -363,12 +398,26 @@ function PetmilyApp() {
     return () => observer.disconnect();
   }, [filteredPosts.length, visibleCount, view, isMoreLoading]);
 
+  const activePostForComment = useMemo(() => allPosts.find(p => p.id === selectedPostIdForComment), [allPosts, selectedPostIdForComment]);
+
+  useEffect(() => {
+    const fetchTarget = async () => {
+      if (view === 'butler_profile' && selectedButler?.id) {
+        const ref = doc(db, 'artifacts', appId, 'users', selectedButler.id, 'profile', 'info');
+        const snap = await getDoc(ref);
+        if (snap.exists()) setTargetButlerProfile(snap.data());
+        else setTargetButlerProfile(null);
+      }
+    };
+    fetchTarget();
+  }, [view, selectedButler]);
+
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-[#FDFCF8]">
       <div className="flex flex-col items-center text-center">
         <PawPrint className="w-16 h-16 text-orange-400 animate-bounce mb-4" />
         <h1 className="text-3xl font-black text-stone-800 tracking-tighter italic mb-1 leading-none">Petmily</h1>
-        <p className="text-stone-400 font-bold text-sm animate-pulse tracking-tight">친구들을 부르는 중... 📣</p>
+        <p className="text-stone-400 font-bold text-sm animate-pulse tracking-tight tracking-tight">친구들을 부르는 중... 📣</p>
       </div>
     </div>
   );
@@ -390,22 +439,33 @@ function PetmilyApp() {
           <div className="px-5 py-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
               {view !== 'feed' && <button onClick={() => setView('feed')} className="p-2 hover:bg-stone-100 rounded-full transition-all active:scale-90"><ArrowLeft size={22} /></button>}
-              <div className="flex flex-col cursor-pointer" onClick={handleHomeClick}>
-                <div className="flex items-center gap-1.5">
-                  <h1 className="text-2xl font-black text-stone-800 tracking-tighter italic leading-none">Petmily</h1>
-                  <span className="bg-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter shadow-sm mb-1">Beta</span>
+              <div className="flex items-center cursor-pointer group" onClick={handleHomeClick}>
+                <div className="w-9 h-9 bg-stone-900 rounded-xl flex items-center justify-center shadow-lg group-hover:rotate-12 transition-transform duration-300">
+                   <PawPrint size={22} className="text-orange-400 fill-orange-400" />
                 </div>
-                {view === 'feed' && (
-                    <div onClick={(e) => { e.stopPropagation(); setView('leaderboard'); }} className="flex items-center gap-1 mt-0.5 cursor-pointer group">
-                      <Trophy size={10} className="text-orange-500 fill-orange-500" />
-                      <span className="text-[9px] font-black text-orange-600 tracking-tight uppercase group-hover:underline">{!myRank ? '명예의 전당' : `${myRank}위`}</span>
-                      <ChevronRight size={10} className="text-orange-400" />
-                    </div>
-                )}
+                <div className="flex flex-col ml-2.5">
+                  <div className="flex items-center gap-1">
+                    <h1 className="text-xl font-black text-stone-800 tracking-tighter italic leading-none">Petmily</h1>
+                    <span className="bg-orange-500 text-white text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-tighter shadow-sm mb-1">Beta</span>
+                  </div>
+                  {view === 'feed' && (
+                      <div onClick={(e) => { e.stopPropagation(); setView('leaderboard'); }} className="flex items-center gap-1 mt-0.5 group/link">
+                        <Trophy size={9} className="text-orange-500 fill-orange-500" />
+                        <span className="text-[8px] font-black text-orange-600 tracking-tight uppercase group-hover/link:underline">{!myRank ? '명예의 전당' : `${myRank}위`}</span>
+                        <ChevronRight size={8} className="text-orange-400" />
+                      </div>
+                  )}
+                </div>
               </div>
             </div>
             {user?.isAnonymous ? (
-              <button onClick={() => setIsLoginModalOpen(true)} className="flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-full font-black text-xs border border-orange-100 shadow-sm active:scale-90 transition-all"><LogIn size={16} />로그인</button>
+              <button 
+                onClick={() => setIsLoginModalOpen(true)} 
+                className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-full font-black text-[11px] shadow-lg shadow-orange-200 active:scale-90 transition-all border-none"
+              >
+                <LogIn size={14} />
+                로그인
+              </button>
             ) : (
               <button onClick={() => setView('profile_edit')} className="w-9 h-9 bg-stone-50 rounded-full overflow-hidden border border-stone-100 active:scale-90 shadow-sm">
                 <img src={profile.profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.nickname || 'Petmily'}`} alt="me" className="w-full h-full object-cover" onError={handleImgError} />
@@ -473,7 +533,7 @@ function PetmilyApp() {
         {view === 'search' && (
           <div className="px-5 space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center gap-3 bg-white border border-stone-200 rounded-[2rem] p-5 shadow-lg focus-within:ring-4 focus-within:ring-orange-100 transition-all border-none shadow-sm"><Search size={22} className="text-stone-400" /><input type="text" placeholder="친구 닉네임이나 내용 검색..." className="w-full text-sm outline-none font-bold bg-transparent placeholder:text-stone-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
-            <div className="grid grid-cols-2 gap-3 pb-20">{filteredPosts.map(post => (<div key={post.id} onClick={() => handleJumpToPost(post.id)} className="aspect-square rounded-[2.2rem] overflow-hidden shadow-md active:scale-95 transition-transform border border-stone-100 cursor-pointer"><img src={post.imageUrl} className="w-full h-full object-cover" alt="post" onError={handleImgError} /></div>))}</div>
+            <div className="grid grid-cols-2 gap-3 pb-20">{filteredPosts.map(post => (<div key={post.id} onClick={() => handleJumpToPost(post.id)} className="aspect-square rounded-[2rem] overflow-hidden shadow-md active:scale-95 transition-transform border border-stone-100 cursor-pointer"><img src={post.imageUrl} className="w-full h-full object-cover" alt="post" onError={handleImgError} /></div>))}</div>
           </div>
         )}
 
@@ -490,7 +550,7 @@ function PetmilyApp() {
                 <div className="grid grid-cols-2 gap-4">
                   {rankingData.newRanking.map((post, idx) => (
                     <div key={post.id} onClick={() => handleJumpToPost(post.id)} className="group relative aspect-[4/5] rounded-[2.2rem] overflow-hidden border-2 border-stone-100 shadow-md active:scale-95 transition-all cursor-pointer">
-                      <img src={post.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="rank" onError={handleImgError} />
+                      <ImageWithFallback src={post.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="rank" />
                       <div className={`absolute top-3 left-3 px-3 py-1 rounded-full text-white text-[10px] font-black shadow-xl ${idx < 3 ? 'bg-orange-500 ring-2 ring-white/30' : 'bg-black/60'}`}>#{idx + 1}</div>
                       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10"><p className="text-[10px] text-white font-black truncate leading-none mb-1">{post.authorName}</p><p className="text-[10px] text-orange-400 font-black flex items-center gap-1 leading-none"><PawPrint size={10} /> {post.score} 꾹</p></div>
                     </div>
@@ -503,7 +563,7 @@ function PetmilyApp() {
                 <div className="space-y-4">
                   {rankingData.cumulativeRanking.map((post, idx) => (
                     <div key={post.id} onClick={() => handleJumpToPost(post.id)} className="group relative aspect-video rounded-[2.5rem] overflow-hidden border-2 border-stone-100 shadow-xl active:scale-98 transition-all cursor-pointer">
-                      <img src={post.imageUrl} className="w-full h-full object-cover" alt="best" onError={handleImgError} />
+                      <ImageWithFallback src={post.imageUrl} className="w-full h-full object-cover" alt="best" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-6 flex flex-col justify-end">
                          <div className="flex items-center justify-between">
                             <div><div className="flex items-center gap-2 mb-1"><span className="text-2xl font-black italic text-orange-500">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}</span><p className="text-white font-black text-lg leading-none">{post.authorName}</p></div><p className="text-stone-400 text-xs font-bold line-clamp-1">{post.caption}</p></div>
@@ -524,7 +584,7 @@ function PetmilyApp() {
               <div className="relative z-10 flex flex-col gap-6">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-4 max-w-[70%]">
-                    <div className="w-16 h-16 rounded-[1.8rem] bg-white/10 border border-white/20 overflow-hidden flex-shrink-0">
+                    <div className="w-16 h-16 rounded-[1.8rem] bg-white/10 border border-white/20 overflow-hidden flex-shrink-0 shadow-inner">
                       <img src={(view === 'my_page' ? profile.profilePic : targetButlerProfile?.profilePic) || `https://api.dicebear.com/7.x/initials/svg?seed=${view === 'my_page' ? (profile?.nickname || 'Butler') : selectedButler?.name}`} alt="av" className="w-full h-full object-cover" onError={handleImgError} />
                     </div>
                     <div className="flex flex-col min-w-0">
@@ -537,13 +597,13 @@ function PetmilyApp() {
                   )}
                 </div>
                 <div className="space-y-4 pt-4 border-t border-white/5">
-                  <div className="flex items-center gap-2 text-stone-400"><HeartHandshake size={14} className="text-orange-400" /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Our Sweet Family</span></div>
+                  <div className="flex items-center gap-2 text-stone-400 font-bold"><HeartHandshake size={14} className="text-orange-400" /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Our Family Card</span></div>
                   <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
                     {(view === 'my_page' ? profile.pets : targetButlerProfile?.pets)?.length > 0 ? (
                       (view === 'my_page' ? profile.pets : targetButlerProfile?.pets).map((pet, i) => (
-                        <div key={i} className="flex-shrink-0 bg-white/5 border border-white/10 rounded-[2rem] p-5 w-[160px] backdrop-blur-md flex flex-col gap-1.5"><p className="text-[10px] text-orange-400 font-black uppercase tracking-tighter">#{pet.type}</p><p className="text-sm font-black text-white leading-none truncate">{pet.name}</p><p className="text-[11px] text-stone-500 font-bold leading-relaxed break-words line-clamp-2 min-h-[32px]">{pet.type === '기타' ? pet.customType : '집사님의 친구!'}</p></div>
+                        <div key={i} className="flex-shrink-0 bg-white/5 border border-white/10 rounded-[2rem] p-5 w-[160px] backdrop-blur-md flex flex-col gap-1.5 font-bold"><p className="text-[10px] text-orange-400 font-black uppercase tracking-tighter">#{pet.type}</p><p className="text-sm font-black text-white leading-none truncate">{pet.name}</p><p className="text-[11px] text-stone-500 font-bold leading-relaxed break-words line-clamp-2 min-h-[32px]">{pet.type === '기타' ? pet.customType : '집사님의 단짝!'}</p></div>
                       ))
-                    ) : ( <p className="text-stone-600 text-xs font-bold italic py-2">아직 아이가 등록되지 않았어요 🐾</p> )}
+                    ) : ( <p className="text-stone-600 text-xs font-bold italic py-2">등록된 아이가 없어요 🐾</p> )}
                   </div>
                 </div>
               </div>
@@ -565,11 +625,11 @@ function PetmilyApp() {
       </main>
 
       <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] bg-stone-900/95 backdrop-blur-xl px-2 py-3 rounded-[2.5rem] flex justify-between items-center shadow-2xl z-[130] border border-white/10 ring-1 ring-white/5 animate-in slide-in-from-bottom-4 duration-500">
-        <button onClick={handleHomeClick} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'feed' ? 'text-white' : 'text-stone-500'}`}><Home size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">홈</span></button>
-        <button onClick={() => setView('search')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'search' ? 'text-white' : 'text-stone-500'}`}><Search size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">찾기</span></button>
+        <button onClick={handleHomeClick} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'feed' ? 'text-white' : 'text-stone-500'}`}><Home size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none font-bold">홈</span></button>
+        <button onClick={() => setView('search')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'search' ? 'text-white' : 'text-stone-500'}`}><Search size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none font-bold">찾기</span></button>
         <div className="flex-1 flex justify-center"><button onClick={() => user?.isAnonymous ? setIsLoginModalOpen(true) : setIsCreateModalOpen(true)} className="bg-gradient-to-br from-orange-400 to-orange-600 text-white p-3.5 rounded-2xl shadow-lg active:scale-75 transition-transform"><PlusSquare size={24} /></button></div>
-        <button onClick={() => { setView('my_page'); setActiveProfileTab('activity'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'activity' ? 'text-white' : 'text-stone-500'}`}><PawPrint size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">꾹</span></button>
-        <button onClick={() => { setView('my_page'); setActiveProfileTab('gallery'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'gallery' ? 'text-white' : 'text-stone-500'}`}><User size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">보물함</span></button>
+        <button onClick={() => { setView('my_page'); setActiveProfileTab('activity'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'activity' ? 'text-white' : 'text-stone-500'}`}><PawPrint size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none font-bold">꾹</span></button>
+        <button onClick={() => { setView('my_page'); setActiveProfileTab('gallery'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'gallery' ? 'text-white' : 'text-stone-500'}`}><User size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none font-bold">보물함</span></button>
       </nav>
 
       {isCreateModalOpen && <CreateModal onClose={() => setIsCreateModalOpen(false)} onSave={handleSavePost} userPets={profile.pets} analyzeFn={callGeminiAI} />}
@@ -577,6 +637,20 @@ function PetmilyApp() {
       {isCommentModalOpen && <CommentModal post={activePostForComment} onClose={() => {setIsCommentModalOpen(false); setSelectedPostIdForComment(null);}} onAddComment={handleAddComment} />}
     </div>
   );
+}
+
+// [전문가] 명예의 전당 등에서 사용될 Fallback 대응 이미지 컴포넌트
+function ImageWithFallback({ src, className, alt }) {
+  const [error, setError] = useState(false);
+  if (error) {
+    return (
+      <div className={`${className} flex flex-col items-center justify-center bg-stone-100 text-stone-300 gap-2 border-y border-stone-50`}>
+        <AlertTriangle size={32} />
+        <span className="text-[8px] font-black">사진을 불러올 수 없어요 🐾</span>
+      </div>
+    );
+  }
+  return <img src={src} className={className} alt={alt} onError={() => setError(true)} />;
 }
 
 function PostCard({ post, currentUser, myProfile, aiResult, onAnalyze, onLike, onDelete, onCommentClick, onButlerClick, onShareClick }) {
@@ -588,79 +662,79 @@ function PostCard({ post, currentUser, myProfile, aiResult, onAnalyze, onLike, o
   const authorImage = isOwner && myProfile?.profilePic ? myProfile.profilePic : (post.authorPhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${post.authorName}`);
 
   return (
-    <div id={`post-${post.id}`} className="bg-white mb-2 shadow-sm border-b border-stone-50 animate-in fade-in duration-500 text-left relative overflow-hidden">
-      <div className="px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={onButlerClick}>
-          <div className="w-10 h-10 rounded-full bg-stone-100 overflow-hidden border-2 border-white shadow-sm flex-shrink-0 group-hover:ring-orange-200 transition-all">
-            <img src={authorImage} alt="av" className="w-full h-full object-cover" onError={handleImgError} />
+    <div id={`post-${post.id}`} className="bg-white mb-2 shadow-sm border-b border-stone-50 animate-in fade-in duration-500 text-left relative overflow-hidden font-bold">
+      <div className="px-4 py-4 flex items-center justify-between font-bold">
+        <div className="flex items-center gap-3 cursor-pointer group font-bold" onClick={onButlerClick}>
+          <div className="w-10 h-10 rounded-full bg-stone-100 overflow-hidden border-2 border-white shadow-sm flex-shrink-0 group-hover:ring-orange-200 transition-all font-bold">
+            <img src={authorImage} alt="av" className="w-full h-full object-cover font-bold" onError={handleImgError} />
           </div>
-          <div className="flex flex-col"><span className="font-black text-[14px] text-stone-800 tracking-tight leading-none group-hover:text-orange-500 transition-colors truncate max-w-[150px]">{post.authorName}</span>{post.petType && <span className="text-[10px] text-stone-300 font-bold mt-1 leading-none">#{post.petType}</span>}</div>
+          <div className="flex flex-col"><span className="font-black text-[14px] text-stone-800 tracking-tight leading-none group-hover:text-orange-500 transition-colors truncate max-w-[150px] font-bold">{post.authorName}</span>{post.petType && <span className="text-[10px] text-stone-300 font-bold mt-1 leading-none">#{post.petType}</span>}</div>
         </div>
         {isOwner && (
           <div className="relative">
-            <button onClick={() => setShowDeleteConfirm(!showDeleteConfirm)} className="p-2 text-stone-200 hover:text-red-400 active:scale-90 transition-all"><Trash2 size={18} /></button>
+            <button onClick={() => setShowDeleteConfirm(!showDeleteConfirm)} className="p-2 text-stone-200 hover:text-red-400 active:scale-90 transition-all font-bold"><Trash2 size={18} /></button>
             {showDeleteConfirm && (
-              <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-stone-100 shadow-2xl rounded-2xl p-4 w-40 animate-in zoom-in-95 duration-200">
+              <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-stone-100 shadow-2xl rounded-2xl p-4 w-40 animate-in zoom-in-95 duration-200 font-bold">
                 <p className="text-[10px] font-black text-stone-400 mb-3 leading-tight text-center font-bold">정말 삭제하시겠어요?</p>
-                <div className="flex gap-2"><button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2 bg-stone-50 text-stone-400 text-[10px] font-black rounded-lg">취소</button><button onClick={() => { onDelete(); setShowDeleteConfirm(false); }} className="flex-1 py-2 bg-red-500 text-white text-[10px] font-black rounded-lg">삭제</button></div>
+                <div className="flex gap-2 font-bold"><button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2 bg-stone-50 text-stone-400 text-[10px] font-bold rounded-lg">취소</button><button onClick={() => { onDelete(); setShowDeleteConfirm(false); }} className="flex-1 py-2 bg-red-500 text-white text-[10px] font-bold rounded-lg font-bold">삭제</button></div>
               </div>
             )}
           </div>
         )}
       </div>
 
-      <div className="relative overflow-hidden aspect-square bg-stone-50 cursor-pointer" onDoubleClick={() => { onLike(); setShowOverlayPaw(true); setTimeout(() => setShowOverlayPaw(false), 800); }}>
+      <div className="relative overflow-hidden aspect-square bg-stone-50 cursor-pointer font-bold" onDoubleClick={() => { onLike(); setShowOverlayPaw(true); setTimeout(() => setShowOverlayPaw(false), 800); }}>
         {imgLoadError ? (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-stone-100 text-stone-400 gap-3 border-y border-stone-50 animate-in fade-in duration-500">
-            <AlertTriangle size={48} className="text-stone-300" />
-            <p className="text-[11px] font-black font-bold tracking-tight">사진을 불러올 수 없어요 🐾</p>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-stone-100 text-stone-400 gap-3 border-y border-stone-50 animate-in fade-in duration-500 font-bold">
+            <AlertTriangle size={48} className="text-stone-300 font-bold" />
+            <p className="text-[11px] font-bold tracking-tight font-bold">사진을 불러올 수 없어요 🐾</p>
           </div>
         ) : (
-          <img src={post.imageUrl} className="w-full h-full object-cover transition-transform duration-[1.5s] hover:scale-105" alt="pet" 
+          <img src={post.imageUrl} className="w-full h-full object-cover transition-transform duration-[1.5s] hover:scale-105 font-bold" alt="pet" 
             onError={() => setImgLoadError(true)} 
           />
         )}
-        {showOverlayPaw && <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in zoom-in fade-out duration-700"><PawPrint size={100} className="text-orange-500/60 fill-orange-500" /></div>}
+        {showOverlayPaw && <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in zoom-in fade-out duration-700 font-bold"><PawPrint size={100} className="text-orange-500/60 fill-orange-500 font-bold" /></div>}
         
         {aiResult && aiResult !== 'analyzing' && (
-          <div className="absolute top-4 right-4 animate-in slide-in-from-right duration-500">
-            <div className="bg-indigo-600/90 text-white px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-sm border border-white/20 shadow-lg">
-              <Sparkle size={12} className="fill-white" />
-              <span className="text-[9px] font-black uppercase tracking-tighter italic">AI Emotion Logged</span>
+          <div className="absolute top-4 right-4 animate-in slide-in-from-right duration-500 font-bold">
+            <div className="bg-indigo-600/90 text-white px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-sm border border-white/20 shadow-lg font-bold">
+              <Sparkle size={12} className="fill-white font-bold" />
+              <span className="text-[9px] font-black uppercase tracking-tighter italic font-bold">AI Emotion Logged</span>
             </div>
           </div>
         )}
       </div>
 
-      <div className="px-5 py-5">
-        <div className="flex gap-5 mb-4 items-center">
-          <PawPrint onClick={onLike} size={32} className={`cursor-pointer transition-all active:scale-150 ${isLiked ? 'fill-orange-500 text-orange-500 drop-shadow-md' : 'text-stone-800 hover:text-orange-400'}`} />
-          <MessageSquare onClick={onCommentClick} size={30} className="text-stone-800 cursor-pointer active:scale-125 transition-transform hover:text-indigo-500" />
+      <div className="px-5 py-5 font-bold font-bold">
+        <div className="flex gap-5 mb-4 items-center font-bold">
+          <PawPrint onClick={onLike} size={32} className={`cursor-pointer transition-all active:scale-150 ${isLiked ? 'fill-orange-500 text-orange-500 drop-shadow-md' : 'text-stone-800 hover:text-orange-400'} font-bold`} />
+          <MessageSquare onClick={onCommentClick} size={30} className="text-stone-800 cursor-pointer active:scale-125 transition-transform hover:text-indigo-500 font-bold" />
           
           {!aiResult && (
-            <button onClick={onAnalyze} className={`flex items-center gap-1.5 px-4 py-2 rounded-full border-2 transition-all active:scale-95 bg-white border-stone-100 text-stone-500 hover:border-indigo-200`}>
-              <BrainCircuit size={16} />
-              <span className="text-[10px] font-black font-bold">기분 분석</span>
+            <button onClick={onAnalyze} className={`flex items-center gap-1.5 px-4 py-2 rounded-full border-2 transition-all active:scale-95 bg-white border-stone-100 text-stone-500 hover:border-indigo-200 font-bold font-bold`}>
+              <BrainCircuit size={16} className="font-bold" />
+              <span className="text-[10px] font-black font-bold font-bold">기분 분석</span>
             </button>
           )}
 
-          <Send onClick={onShareClick} size={28} className="text-stone-800 ml-auto opacity-50 hover:opacity-100 cursor-pointer active:scale-125 transition-all" />
+          <Send onClick={onShareClick} size={28} className="text-stone-800 ml-auto opacity-50 hover:opacity-100 cursor-pointer active:scale-125 transition-all font-bold" />
         </div>
 
         {aiResult && (
-          <div className={`mb-4 p-5 rounded-[2rem] border relative animate-in slide-in-from-top-3 duration-500 ${aiResult === 'analyzing' ? 'bg-stone-50 border-stone-100' : 'bg-indigo-50/70 border-indigo-100 shadow-sm'}`}>
-            <div className="flex gap-3">
-              {aiResult === 'analyzing' ? <Loader2 size={18} className="animate-spin text-stone-400" /> : <Quote size={16} className="text-indigo-400 flex-shrink-0 mt-1" />}
-              <p className={`text-[12px] font-bold leading-relaxed tracking-tight ${aiResult === 'analyzing' ? 'text-stone-400' : 'text-indigo-800'}`}>
+          <div className={`mb-4 p-5 rounded-[2rem] border relative animate-in slide-in-from-top-3 duration-500 ${aiResult === 'analyzing' ? 'bg-stone-50 border-stone-100' : 'bg-indigo-50/70 border-indigo-100 shadow-sm shadow-indigo-100/50'} font-bold`}>
+            <div className="flex gap-3 font-bold">
+              {aiResult === 'analyzing' ? <Loader2 size={18} className="animate-spin text-stone-400 font-bold" /> : <Quote size={16} className="text-indigo-400 flex-shrink-0 mt-1 font-bold" />}
+              <p className={`text-[12px] font-bold leading-relaxed tracking-tight font-bold ${aiResult === 'analyzing' ? 'text-stone-400' : 'text-indigo-800'}`}>
                 {aiResult === 'analyzing' ? "아이의 마음을 읽고 있어요..." : aiResult}
               </p>
             </div>
-            {aiResult !== 'analyzing' && <div className="absolute -top-2 left-6 w-3 h-3 bg-indigo-50/70 border-l border-t border-indigo-100 rotate-45"></div>}
+            {aiResult !== 'analyzing' && <div className="absolute -top-2 left-6 w-3 h-3 bg-indigo-50/70 border-l border-t border-indigo-100 rotate-45 font-bold"></div>}
           </div>
         )}
 
-        <p className="text-[12px] font-black text-stone-400 mb-2 uppercase tracking-tighter leading-none font-bold">{(post.likes || []).length} Pet Lovers 꾹!</p>
-        <p className="text-sm leading-relaxed"><span className="font-black mr-2 text-stone-900 cursor-pointer hover:underline font-bold" onClick={onButlerClick}>{post.authorName}</span><span className="text-stone-600 font-bold tracking-tight break-words">{post.caption}</span></p>
+        <p className="text-[12px] font-black text-stone-400 mb-2 uppercase tracking-tighter leading-none font-bold font-bold">{(post.likes || []).length} Pet Lovers 꾹!</p>
+        <p className="text-sm leading-relaxed font-bold font-bold"><span className="font-black mr-2 text-stone-900 cursor-pointer hover:underline font-bold" onClick={onButlerClick}>{post.authorName}</span><span className="text-stone-600 font-bold tracking-tight break-words font-bold">{post.caption}</span></p>
       </div>
     </div>
   );
@@ -681,38 +755,38 @@ function ProfileForm({ isEdit, initialData, onSave, onBack, onLogout }) {
   };
 
   return (
-    <div className="min-h-screen bg-white p-8 animate-in fade-in duration-500 pb-40 text-left font-bold">
-      <div className="flex justify-between items-center mb-10"><button onClick={onBack} className="p-3.5 bg-stone-50 rounded-full active:scale-90 transition-all shadow-sm"><ArrowLeft size={24} /></button><h2 className="text-3xl font-black text-stone-800 tracking-tighter italic leading-none">설정</h2><div className="w-10" /></div>
-      <div className="space-y-12">
-        <section className="flex flex-col items-center gap-4">
-           <div className="relative group cursor-pointer" onClick={() => fileInputRef.current.click()}>
-              <div className="w-28 h-28 rounded-[2.5rem] bg-stone-100 overflow-hidden border-4 border-white shadow-xl transition-all hover:ring-8 hover:ring-orange-50"><img src={profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${nickname || 'P'}`} alt="me" className="w-full h-full object-cover" onError={handleImgError} /></div>
-              <div className="absolute bottom-0 right-0 p-2 bg-stone-900 text-white rounded-2xl border-4 border-white shadow-lg"><CameraIcon size={16} /></div>
+    <div className="min-h-screen bg-white p-8 animate-in fade-in duration-500 pb-40 text-left font-bold font-bold">
+      <div className="flex justify-between items-center mb-10 font-bold font-bold font-bold"><button onClick={onBack} className="p-3.5 bg-stone-50 rounded-full active:scale-90 transition-all shadow-sm font-bold font-bold font-bold font-bold"><ArrowLeft size={24} /></button><h2 className="text-3xl font-black text-stone-800 tracking-tighter italic leading-none font-bold font-bold font-bold font-bold">설정</h2><div className="w-10" /></div>
+      <div className="space-y-12 font-bold font-bold font-bold font-bold">
+        <section className="flex flex-col items-center gap-4 font-bold font-bold font-bold font-bold">
+           <div className="relative group cursor-pointer font-bold font-bold font-bold font-bold" onClick={() => fileInputRef.current.click()}>
+              <div className="w-28 h-28 rounded-[2.5rem] bg-stone-100 overflow-hidden border-4 border-white shadow-xl transition-all hover:ring-8 hover:ring-orange-50 font-bold font-bold font-bold font-bold font-bold"><img src={profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${nickname || 'P'}`} alt="me" className="w-full h-full object-cover font-bold font-bold" onError={handleImgError} /></div>
+              <div className="absolute bottom-0 right-0 p-2 bg-stone-900 text-white rounded-2xl border-4 border-white shadow-lg font-bold font-bold font-bold font-bold font-bold font-bold"><CameraIcon size={16} /></div>
            </div>
            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleProfilePicChange} />
         </section>
-        <section><label className="text-[12px] font-black text-stone-300 block mb-5 px-1 uppercase tracking-[0.3em]">Butler Name</label><input type="text" placeholder="집사 닉네임" className="w-full bg-stone-50 border-none rounded-[1.8rem] p-6 text-base outline-none font-bold shadow-stone-100 focus:ring-4 focus:ring-orange-100 transition-all" value={nickname} onChange={(e) => setNickname(e.target.value)} /></section>
-        <section className="space-y-8">
-          <div className="flex justify-between items-center px-1"><label className="text-[12px] font-black text-stone-300 uppercase tracking-[0.3em]">Family ({pets.length})</label><button onClick={() => setPets([...pets, { id: Date.now(), name: '', type: '강아지', customType: '' }])} className="flex items-center gap-2 text-[11px] font-black text-orange-500 bg-orange-50 px-5 py-2.5 rounded-full active:scale-95 transition-all shadow-sm"><Plus size={16} />아이 추가</button></div>
+        <section className="font-bold font-bold font-bold font-bold font-bold"><label className="text-[12px] font-black text-stone-300 block mb-5 px-1 uppercase tracking-[0.3em] font-bold font-bold font-bold font-bold font-bold">Butler Name</label><input type="text" placeholder="집사 닉네임" className="w-full bg-stone-50 border-none rounded-[1.8rem] p-6 text-base outline-none font-bold shadow-stone-100 focus:ring-4 focus:ring-orange-100 transition-all font-bold font-bold font-bold font-bold font-bold" value={nickname} onChange={(e) => setNickname(e.target.value)} /></section>
+        <section className="space-y-8 font-bold font-bold font-bold font-bold font-bold">
+          <div className="flex justify-between items-center px-1 font-bold font-bold font-bold font-bold font-bold"><label className="text-[12px] font-black text-stone-300 uppercase tracking-[0.3em] font-bold font-bold font-bold font-bold font-bold">Family ({pets.length})</label><button onClick={() => setPets([...pets, { id: Date.now(), name: '', type: '강아지', customType: '' }])} className="flex items-center gap-2 text-[11px] font-black text-orange-500 bg-orange-50 px-5 py-2.5 rounded-full active:scale-95 transition-all shadow-sm font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold"><Plus size={16} />아이 추가</button></div>
           {pets.map((pet, idx) => (
-            <div key={pet.id} className="p-7 bg-stone-50/80 border border-stone-100 rounded-[3rem] space-y-6 relative shadow-sm animate-in zoom-in-95">
-              <button onClick={() => setPets(pets.filter(p => p.id !== pet.id))} className="absolute top-6 right-6 p-2.5 text-stone-300 active:scale-75 hover:text-red-400 transition-colors"><Trash2 size={20}/></button>
-              <div className="flex items-center gap-4"><div className="w-10 h-10 bg-stone-900 text-white rounded-[1.2rem] flex items-center justify-center font-black text-sm shadow-lg leading-none font-bold">{idx + 1}</div><input type="text" placeholder="이름" className="bg-transparent border-b-2 border-stone-100 focus:border-orange-400 outline-none text-lg font-bold p-1 w-full" value={pet.name} onChange={(e) => setPets(pets.map(p => p.id === pet.id ? {...p, name: e.target.value} : p))} /></div>
-              <div className="flex flex-wrap gap-2.5">
+            <div key={pet.id} className="p-7 bg-stone-50/80 border border-stone-100 rounded-[3rem] space-y-6 relative shadow-sm animate-in zoom-in-95 font-bold font-bold font-bold font-bold font-bold font-bold font-bold">
+              <button onClick={() => setPets(pets.filter(p => p.id !== pet.id))} className="absolute top-6 right-6 p-2.5 text-stone-300 active:scale-75 hover:text-red-400 transition-colors font-bold font-bold font-bold font-bold font-bold font-bold font-bold"><Trash2 size={20}/></button>
+              <div className="flex items-center gap-4 font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold"><div className="w-10 h-10 bg-stone-900 text-white rounded-[1.2rem] flex items-center justify-center font-black text-sm shadow-lg leading-none font-bold font-bold font-bold font-bold font-bold font-bold font-bold">{idx + 1}</div><input type="text" placeholder="이름" className="bg-transparent border-b-2 border-stone-100 focus:border-orange-400 outline-none text-lg font-bold p-1 w-full font-bold font-bold font-bold font-bold font-bold font-bold font-bold" value={pet.name} onChange={(e) => setPets(pets.map(p => p.id === pet.id ? {...p, name: e.target.value} : p))} /></div>
+              <div className="flex flex-wrap gap-2.5 font-bold font-bold font-bold font-bold font-bold font-bold font-bold">
                 {['강아지', '고양이', '새', '햄스터', '기타'].map(opt => (
-                  <button key={opt} onClick={() => setPets(pets.map(p => p.id === pet.id ? {...p, type: opt} : p))} className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-[11px] font-bold transition-all border-2 active:scale-95 ${pet.type === opt ? `bg-orange-50 text-orange-600 border-current scale-105 shadow-md shadow-orange-100` : 'bg-white text-stone-400 border-stone-100'}`}>
+                  <button key={opt} onClick={() => setPets(pets.map(p => p.id === pet.id ? {...p, type: opt} : p))} className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-[11px] font-bold transition-all border-2 active:scale-95 font-bold font-bold font-bold font-bold font-bold font-bold font-bold ${pet.type === opt ? `bg-orange-50 text-orange-600 border-current scale-105 shadow-md shadow-orange-100` : 'bg-white text-stone-400 border-stone-100'}`}>
                     <span>{opt}</span>
                   </button>
                 ))}
               </div>
               {pet.type === '기타' && (
-                <input type="text" placeholder="정확한 종을 입력해주세요" className="w-full bg-white border-2 border-stone-100 rounded-[1.5rem] p-5 text-sm outline-none focus:border-orange-400 font-bold animate-in slide-in-from-top-2" value={pet.customType} onChange={(e) => setPets(pets.map(p => p.id === pet.id ? {...p, customType: e.target.value} : p))} />
+                <input type="text" placeholder="정확한 종을 입력해주세요" className="w-full bg-white border-2 border-stone-100 rounded-[1.5rem] p-5 text-sm outline-none focus:border-orange-400 font-bold animate-in slide-in-from-top-2 font-bold font-bold font-bold font-bold font-bold font-bold font-bold" value={pet.customType} onChange={(e) => setPets(pets.map(p => p.id === pet.id ? {...p, customType: e.target.value} : p))} />
               )}
             </div>
           ))}
         </section>
-        <button onClick={() => onSave({ nickname, pets, profilePic })} disabled={!nickname} className="w-full bg-stone-900 text-white py-6 rounded-[2.5rem] font-bold shadow-2xl active:scale-95 disabled:bg-stone-200 uppercase tracking-[0.2em] text-[15px] transition-all">저장하고 시작하기</button>
-        {isEdit && <button onClick={onLogout} className="w-full py-4 text-stone-300 font-bold text-[13px] flex items-center justify-center gap-2 mt-6 active:scale-90 underline underline-offset-8 uppercase tracking-widest hover:text-stone-500 transition-colors">로그아웃</button>}
+        <button onClick={() => onSave({ nickname, pets, profilePic })} disabled={!nickname} className="w-full bg-stone-900 text-white py-6 rounded-[2.5rem] font-bold shadow-2xl active:scale-95 disabled:bg-stone-200 uppercase tracking-[0.2em] text-[15px] transition-all font-bold font-bold font-bold font-bold font-bold font-bold">저장하고 시작하기</button>
+        {isEdit && <button onClick={onLogout} className="w-full py-4 text-stone-300 font-bold text-[13px] flex items-center justify-center gap-2 mt-6 active:scale-90 underline underline-offset-8 uppercase tracking-widest hover:text-stone-500 transition-colors font-bold font-bold font-bold font-bold font-bold font-bold">로그아웃</button>}
       </div>
     </div>
   );
@@ -749,39 +823,39 @@ function CreateModal({ onClose, onSave, userPets, analyzeFn }) {
 
   return (
     <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300 p-0 font-bold">
-      <div className="w-full max-w-md bg-white rounded-t-[4rem] p-10 animate-in slide-in-from-bottom duration-500 shadow-2xl max-h-[95vh] overflow-y-auto text-left scrollbar-hide">
-        <div className="flex justify-between items-center mb-10"><h2 className="text-3xl font-black text-stone-800 tracking-tighter italic leading-none">새 글 작성 🐾</h2><button onClick={onClose} className="p-3.5 bg-stone-100 rounded-full text-stone-400 active:scale-90 hover:bg-stone-200 transition-all shadow-sm"><X size={22} /></button></div>
-        <div className="space-y-8">
-          <section><label className="text-[10px] font-black text-stone-300 uppercase tracking-widest block mb-4">누구의 사진인가요?</label><div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">{['강아지', '고양이', '새', '햄스터', '기타'].map(type => (<button key={type} onClick={() => setSelectedPetType(type)} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${selectedPetType === type ? 'bg-orange-500 text-white border-orange-500 shadow-md' : 'bg-stone-50 text-stone-400 border-stone-100'}`}>{type}</button>))}</div></section>
+      <div className="w-full max-w-md bg-white rounded-t-[4rem] p-10 animate-in slide-in-from-bottom duration-500 shadow-2xl max-h-[95vh] overflow-y-auto text-left scrollbar-hide font-bold font-bold">
+        <div className="flex justify-between items-center mb-10 font-bold font-bold"><h2 className="text-3xl font-black text-stone-800 tracking-tighter italic leading-none font-bold font-bold">새 글 작성 🐾</h2><button onClick={onClose} className="p-3.5 bg-stone-100 rounded-full text-stone-400 active:scale-90 hover:bg-stone-200 transition-all shadow-sm font-bold font-bold font-bold"><X size={22} /></button></div>
+        <div className="space-y-8 font-bold font-bold font-bold">
+          <section className="font-bold font-bold font-bold"><label className="text-[10px] font-black text-stone-300 uppercase tracking-widest block mb-4 font-bold font-bold font-bold">누구의 사진인가요?</label><div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 font-bold font-bold font-bold">{['강아지', '고양이', '새', '햄스터', '기타'].map(type => (<button key={type} onClick={() => setSelectedPetType(type)} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border font-bold font-bold font-bold ${selectedPetType === type ? 'bg-orange-500 text-white border-orange-500 shadow-md' : 'bg-stone-50 text-stone-400 border-stone-100 font-bold font-bold font-bold'}`}>{type}</button>))}</div></section>
           
           <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
           {imgData ? (
-            <div className="relative aspect-square rounded-[3.5rem] overflow-hidden border-8 border-stone-50 shadow-2xl group">
-              <img src={imgData} className="w-full h-full object-cover" alt="prev" />
-              <button onClick={() => setImgData('')} className="absolute top-6 right-6 p-4 bg-black/60 text-white rounded-full active:scale-90 shadow-lg backdrop-blur-md transition-all hover:bg-black/80"><X size={18} /></button>
+            <div className="relative aspect-square rounded-[3.5rem] overflow-hidden border-8 border-stone-50 shadow-2xl group font-bold font-bold font-bold font-bold">
+              <img src={imgData} className="w-full h-full object-cover font-bold font-bold font-bold font-bold" alt="prev" />
+              <button onClick={() => setImgData('')} className="absolute top-6 right-6 p-4 bg-black/60 text-white rounded-full active:scale-90 shadow-lg backdrop-blur-md transition-all hover:bg-black/80 font-bold font-bold font-bold font-bold"><X size={18} /></button>
             </div>
           ) : (
-            <div onClick={() => fileInputRef.current.click()} className="w-full aspect-square bg-stone-50 rounded-[3.5rem] border-4 border-dashed border-stone-200 flex flex-col items-center justify-center cursor-pointer hover:bg-stone-100 transition-all gap-5 active:scale-95 group shadow-inner shadow-stone-100">
-              <div className="p-7 bg-white rounded-full shadow-2xl text-orange-500 group-hover:scale-110 transition-transform"><Upload size={40} /></div>
-              <p className="text-lg font-bold text-stone-500 tracking-tight leading-none">사진첩 열기</p>
+            <div onClick={() => fileInputRef.current.click()} className="w-full aspect-square bg-stone-50 rounded-[3.5rem] border-4 border-dashed border-stone-200 flex flex-col items-center justify-center cursor-pointer hover:bg-stone-100 transition-all gap-5 active:scale-95 group shadow-inner shadow-stone-100 font-bold font-bold font-bold font-bold">
+              <div className="p-7 bg-white rounded-full shadow-2xl text-orange-500 group-hover:scale-110 transition-transform font-bold font-bold font-bold font-bold"><Upload size={40} /></div>
+              <p className="text-lg font-bold text-stone-500 tracking-tight leading-none font-bold font-bold font-bold font-bold">사진첩 열기</p>
             </div>
           )}
 
-          <textarea rows="3" placeholder="아이의 매력을 한마디로!" className="w-full bg-stone-50 rounded-[2rem] p-6 text-base outline-none resize-none shadow-inner font-bold focus:ring-4 focus:ring-orange-100 transition-all border-none" value={desc} onChange={(e) => setDesc(e.target.value)} />
+          <textarea rows="3" placeholder="아이의 매력을 한마디로!" className="w-full bg-stone-50 rounded-[2rem] p-6 text-base outline-none resize-none shadow-inner font-bold focus:ring-4 focus:ring-orange-100 transition-all border-none font-bold font-bold font-bold font-bold" value={desc} onChange={(e) => setDesc(e.target.value)} />
           
-          <div className="flex items-center justify-between px-2 bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100">
-             <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-indigo-700 font-black text-sm"><BrainCircuit size={16}/>AI 감정 분석 포함하기</div>
-                <p className="text-[10px] text-indigo-400 font-bold">아이의 마음이 담긴 일기가 함께 게시됩니다.</p>
+          <div className="flex items-center justify-between px-2 bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100 font-bold font-bold font-bold font-bold">
+             <div className="flex flex-col gap-1 font-bold font-bold font-bold font-bold">
+                <div className="flex items-center gap-1.5 text-indigo-700 font-black text-sm font-bold font-bold font-bold font-bold"><BrainCircuit size={16}/>AI 감정 분석 포함하기</div>
+                <p className="text-[10px] text-indigo-400 font-bold tracking-tight font-bold font-bold font-bold font-bold font-bold">아이의 마음이 담긴 일기가 함께 게시됩니다.</p>
              </div>
-             <button onClick={() => setWithAI(!withAI)} className={`w-12 h-7 rounded-full transition-all relative ${withAI ? 'bg-indigo-600 shadow-md shadow-indigo-100' : 'bg-stone-200'}`}>
-                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${withAI ? 'left-6' : 'left-1'}`}></div>
+             <button onClick={() => setWithAI(!withAI)} className={`w-12 h-7 rounded-full transition-all relative font-bold font-bold font-bold font-bold ${withAI ? 'bg-indigo-600 shadow-md shadow-indigo-100' : 'bg-stone-200'}`}>
+                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all font-bold font-bold font-bold font-bold ${withAI ? 'left-6' : 'left-1'}`}></div>
              </button>
           </div>
 
-          <button onClick={handleFinalSubmit} disabled={!desc || !imgData || isSubmitting} className="w-full bg-stone-900 text-white py-7 rounded-[2.5rem] font-bold shadow-2xl active:scale-95 transition-all mb-4 uppercase tracking-[0.3em] text-[15px] disabled:bg-stone-300 flex items-center justify-center gap-3">
+          <button onClick={handleFinalSubmit} disabled={!desc || !imgData || isSubmitting} className="w-full bg-stone-900 text-white py-7 rounded-[2.5rem] font-bold shadow-2xl active:scale-95 transition-all mb-4 uppercase tracking-[0.3em] text-[15px] disabled:bg-stone-300 flex items-center justify-center gap-3 font-bold font-bold font-bold font-bold">
             {isSubmitting ? (
-              <><Loader2 size={20} className="animate-spin" />{submitStatus}</>
+              <><Loader2 size={20} className="animate-spin font-bold font-bold font-bold font-bold" />{submitStatus}</>
             ) : "게시하기"}
           </button>
         </div>
@@ -794,13 +868,13 @@ function CommentModal({ post, onClose, onAddComment }) {
   const [text, setText] = useState('');
   if (!post) return null;
   return (
-    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="w-full max-w-md bg-white rounded-t-[4rem] p-10 animate-in slide-in-from-bottom duration-500 flex flex-col h-[90vh] shadow-2xl text-left font-bold">
-        <div className="flex justify-between items-center mb-10"><div className="flex items-center gap-3"><MessageCircle size={26} className="text-indigo-500" /><h3 className="text-2xl font-black text-stone-800 tracking-tighter italic leading-none">이야기 나누기</h3></div><button onClick={onClose} className="p-3.5 bg-stone-100 rounded-full text-stone-400 active:scale-90 hover:bg-stone-200 transition-all shadow-sm"><X size={22} /></button></div>
-        <div className="flex-1 overflow-y-auto space-y-8 px-2 pb-10 scrollbar-hide font-bold">
-          {(!post.comments || post.comments.length === 0) ? (<div className="text-center py-32"><Sparkles className="mx-auto text-stone-100 mb-6" size={64} /><p className="text-stone-300 font-bold italic text-xl leading-snug tracking-tight">첫 응원을 남겨보세요! 🐾</p></div>) : (post.comments.map((c, i) => (<div key={i} className="flex gap-5 animate-in fade-in slide-in-from-left-3 duration-300"><div className="w-11 h-11 rounded-full bg-stone-50 flex-shrink-0 overflow-hidden border border-stone-100 shadow-sm"><img src={`https://api.dicebear.com/7.x/initials/svg?seed=${c.name}`} alt="av" onError={handleImgError} /></div><div className="flex-1"><div className="bg-stone-50 p-5 rounded-[2.2rem] rounded-tl-none shadow-sm"><p className="text-[12px] font-bold text-stone-400 mb-1 uppercase tracking-widest leading-none truncate font-bold">{c.name}</p><p className="text-[15px] text-stone-800 font-bold leading-relaxed break-words font-bold">{c.text}</p></div></div></div>)))}
+    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300 p-0 font-bold font-bold font-bold font-bold">
+      <div className="w-full max-w-md bg-white rounded-t-[4rem] p-10 animate-in slide-in-from-bottom duration-500 flex flex-col h-[90vh] shadow-2xl text-left font-bold font-bold font-bold font-bold">
+        <div className="flex justify-between items-center mb-10 font-bold font-bold font-bold font-bold font-bold"><div className="flex items-center gap-3 font-bold font-bold font-bold font-bold font-bold"><MessageCircle size={26} className="text-indigo-500 font-bold font-bold font-bold font-bold font-bold" /><h3 className="text-2xl font-black text-stone-800 tracking-tighter italic leading-none font-bold font-bold font-bold font-bold font-bold">이야기 나누기</h3></div><button onClick={onClose} className="p-3.5 bg-stone-100 rounded-full text-stone-400 active:scale-90 hover:bg-stone-200 transition-all shadow-sm font-bold font-bold font-bold font-bold font-bold"><X size={22} /></button></div>
+        <div className="flex-1 overflow-y-auto space-y-8 px-2 pb-10 scrollbar-hide font-bold font-bold font-bold font-bold font-bold">
+          {(!post.comments || post.comments.length === 0) ? (<div className="text-center py-32 font-bold font-bold font-bold font-bold font-bold"><Sparkles className="mx-auto text-stone-100 mb-6 font-bold font-bold font-bold font-bold font-bold" size={64} /><p className="text-stone-300 font-bold italic text-xl leading-snug tracking-tight font-bold font-bold font-bold font-bold font-bold">첫 응원을 남겨보세요! 🐾</p></div>) : (post.comments.map((c, i) => (<div key={i} className="flex gap-5 animate-in fade-in slide-in-from-left-3 duration-300 font-bold font-bold font-bold font-bold font-bold"><div className="w-11 h-11 rounded-full bg-stone-50 flex-shrink-0 overflow-hidden border border-stone-100 shadow-sm font-bold font-bold font-bold font-bold font-bold"><img src={`https://api.dicebear.com/7.x/initials/svg?seed=${c.name}`} alt="av" onError={handleImgError} /></div><div className="flex-1 font-bold font-bold font-bold font-bold font-bold"><div className="bg-stone-50 p-5 rounded-[2.2rem] rounded-tl-none shadow-sm font-bold font-bold font-bold font-bold font-bold"><p className="text-[12px] font-bold text-stone-400 mb-1 uppercase tracking-widest leading-none truncate font-bold font-bold font-bold font-bold font-bold">{c.name}</p><p className="text-[15px] text-stone-800 font-bold leading-relaxed break-words font-bold font-bold font-bold font-bold font-bold">{c.text}</p></div></div></div>)))}
         </div>
-        <div className="pt-8 border-t border-stone-100 flex gap-4 pb-12"><input type="text" placeholder="따뜻한 한마디..." className="flex-1 bg-stone-50 rounded-[2.2rem] px-8 py-5 text-[15px] outline-none focus:ring-4 focus:ring-indigo-100 transition-all font-bold border-none shadow-inner" value={text} onChange={(e) => setText(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter' && text) { onAddComment(post.id, text); setText(''); }}} /><button onClick={() => { if(text) { onAddComment(post.id, text); setText(''); }}} className="bg-stone-900 text-white p-5 rounded-full shadow-xl active:scale-75 transition-transform"><Send size={26} /></button></div>
+        <div className="pt-8 border-t border-stone-100 flex gap-4 pb-12 font-bold font-bold font-bold font-bold"><input type="text" placeholder="따뜻한 한마디..." className="flex-1 bg-stone-50 rounded-[2.2rem] px-8 py-5 text-[15px] outline-none focus:ring-4 focus:ring-indigo-100 transition-all font-bold border-none shadow-inner font-bold font-bold font-bold font-bold" value={text} onChange={(e) => setText(e.target.value)} onKeyPress={(e) => { if(e.key === 'Enter' && text) { onAddComment(post.id, text); setText(''); }}} /><button onClick={() => { if(text) { onAddComment(post.id, text); setText(''); }}} className="bg-stone-900 text-white p-5 rounded-full shadow-xl active:scale-75 transition-transform font-bold font-bold font-bold font-bold"><Send size={26} /></button></div>
       </div>
     </div>
   );
@@ -808,15 +882,15 @@ function CommentModal({ post, onClose, onAddComment }) {
 
 function LoginModal({ onClose, onLogin }) {
   return (
-    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-500">
-      <div className="w-[92%] max-w-sm bg-white rounded-[4rem] p-14 text-center shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-400 via-indigo-500 to-orange-400"></div>
-        <div className="w-24 h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 text-indigo-600 ring-8 ring-white shadow-inner shadow-indigo-100"><Camera size={44} /></div>
-        <h2 className="text-3xl font-black text-stone-800 mb-4 tracking-tighter uppercase italic leading-none">Welcome!</h2>
-        <p className="text-stone-500 text-[14px] mb-12 leading-relaxed font-bold tracking-tight font-bold">로그인을 하시면 자랑스러운 우리 아이를<br/>명예의 전당에 올릴 수 있어요! 🐾</p>
-        <div className="space-y-4">
-           <button onClick={onLogin} className="w-full bg-indigo-600 text-white py-5 rounded-[2.5rem] font-bold shadow-lg active:scale-95 transition-all text-lg tracking-tight uppercase border-none">Google 로그인</button>
-           <button onClick={onClose} className="w-full py-4 text-stone-300 font-bold text-[13px] uppercase tracking-[0.4em] hover:text-stone-500 transition-colors active:scale-90 leading-none font-bold">나중에 할게요</button>
+    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-xl animate-in fade-in duration-500 font-bold font-bold font-bold font-bold">
+      <div className="w-[92%] max-w-sm bg-white rounded-[4rem] p-14 text-center shadow-2xl relative overflow-hidden font-bold font-bold font-bold font-bold font-bold">
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-400 via-indigo-500 to-orange-400 font-bold font-bold font-bold font-bold font-bold font-bold"></div>
+        <div className="w-24 h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 text-indigo-600 ring-8 ring-white shadow-inner shadow-indigo-100 font-bold font-bold font-bold font-bold font-bold font-bold"><Camera size={44} /></div>
+        <h2 className="text-3xl font-black text-stone-800 mb-4 tracking-tighter uppercase italic leading-none font-bold font-bold font-bold font-bold font-bold font-bold">Welcome!</h2>
+        <p className="text-stone-500 text-[14px] mb-12 leading-relaxed font-bold tracking-tight font-bold font-bold font-bold font-bold font-bold font-bold font-bold">로그인을 하시면 자랑스러운 우리 아이를<br/>명예의 전당에 올릴 수 있어요! 🐾</p>
+        <div className="space-y-4 font-bold font-bold font-bold font-bold font-bold">
+           <button onClick={onLogin} className="w-full bg-indigo-600 text-white py-5 rounded-[2.5rem] font-bold shadow-lg active:scale-95 transition-all text-lg tracking-tight uppercase border-none font-bold font-bold font-bold font-bold font-bold">Google 로그인</button>
+           <button onClick={onClose} className="w-full py-4 text-stone-300 font-bold text-[13px] uppercase tracking-[0.4em] hover:text-stone-500 transition-colors active:scale-90 leading-none font-bold font-bold font-bold font-bold font-bold">나중에 할게요</button>
         </div>
       </div>
     </div>
