@@ -137,7 +137,7 @@ export default function App() {
     return messages[Math.floor(Math.random() * messages.length)];
   }, [loading]);
 
-  // 인증 상태 감시
+  // 인증 및 프로필 로드
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -183,13 +183,10 @@ export default function App() {
       const params = new URLSearchParams(window.location.search);
       const sharedPostId = params.get('postId');
       if (sharedPostId) {
-        // 해당 게시글로 스크롤
         setTimeout(() => {
           const el = document.getElementById(`post-${sharedPostId}`);
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // 스크롤 후 URL 파라미터 조용히 제거 (선택 사항)
-            // window.history.replaceState({}, document.title, window.location.pathname);
           }
         }, 1000);
       }
@@ -293,15 +290,19 @@ export default function App() {
     } catch (err) { console.error(err); }
   };
 
-  const handleShare = (postId) => {
-    const url = `${window.location.origin}${window.location.pathname}?postId=${postId}`;
+  // 게시글 공유 시 커스텀 텍스트와 함께 복사
+  const handleShare = (post) => {
+    const petName = profile?.pets?.[0]?.name; // 첫 번째 아이 이름을 대표로 사용
+    const shareTitle = `우리 ${petName || '아이'} 사진에 꾹 도장 찍어주세요~`;
+    const url = `${window.location.origin}${window.location.pathname}?postId=${post.id}`;
+    
     const textArea = document.createElement("textarea");
-    textArea.value = url;
+    textArea.value = `${shareTitle}\n\n${url}`;
     document.body.appendChild(textArea);
     textArea.select();
     try {
       document.execCommand('copy');
-      showToast("공유 링크가 복사되었습니다! 🐾");
+      showToast("공유 문구와 링크가 복사되었습니다! 🐾");
     } catch (err) {
       showToast("링크 복사 실패 ❌");
     }
@@ -353,7 +354,7 @@ export default function App() {
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] p-8 text-center shadow-2xl border-t-8 border-orange-500 max-w-[320px]">
             <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-6"><ExternalLink className="text-orange-500" size={32} /></div>
-            <h2 className="text-xl font-black mb-3 tracking-tight text-stone-800 leading-none">외부 브라우저 권장</h2>
+            <h2 className="text-xl font-black mb-3 tracking-tight text-stone-800 leading-none text-left">외부 브라우저 권장</h2>
             <p className="text-stone-500 text-sm leading-relaxed mb-8 text-left">인앱 브라우저에서는 <b>구글 로그인</b>이 제한되어 서비스 이용이 어려워요!<br/><span className="text-orange-600 font-bold underline decoration-orange-200">크롬이나 사파리</span>로 다시 열까요?</p>
             <div className="space-y-3">
               <button onClick={() => { const url = window.location.href; window.location.href = `googlechrome://navigate?url=${url}`; setTimeout(() => { window.location.href = url; }, 500); }} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-lg">브라우저로 바로가기</button>
@@ -395,7 +396,7 @@ export default function App() {
               onLike={() => handleLike(post.id, post.likes)} 
               onCommentClick={() => { setSelectedPostIdForComment(post.id); setIsCommentModalOpen(true); }}
               onButlerClick={() => goToButler(post.authorId, post.authorName)}
-              onShareClick={() => handleShare(post.id)}
+              onShareClick={() => handleShare(post)}
             />
           ))
         )}
@@ -489,16 +490,22 @@ export default function App() {
         )}
       </main>
 
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] bg-stone-900/95 backdrop-blur-xl px-2 py-3 rounded-[2.2rem] flex justify-between items-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] z-[130] border border-white/10 ring-1 ring-white/5 animate-in slide-in-from-bottom-4 duration-500">
-        <button onClick={() => setView('feed')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'feed' ? 'text-white' : 'text-stone-500'}`}><Home size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">홈</span></button>
-        <button onClick={() => setView('search')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'search' ? 'text-white' : 'text-stone-500'}`}><Search size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">찾기</span></button>
-        <div className="flex-1 flex justify-center">
-          <button onClick={() => user.isAnonymous ? setIsLoginModalOpen(true) : setIsCreateModalOpen(true)} className="bg-gradient-to-br from-orange-400 to-orange-600 text-white p-3.5 rounded-2xl shadow-[0_10px_20px_-5px_rgba(249,115,22,0.5)] border-2 border-white/10 active:scale-75 transition-transform"><PlusSquare size={24} /></button>
-        </div>
-        <button onClick={() => { setView('my_page'); setActiveProfileTab('activity'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'activity' ? 'text-white' : 'text-stone-500'}`}><PawPrint size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">꾹</span></button>
-        <button onClick={() => { setView('my_page'); setActiveProfileTab('gallery'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'gallery' ? 'text-white' : 'text-stone-500'}`}><User size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">보물함</span></button>
-      </nav>
+      {/* 하단 네비게이션 */}
+      {isMainView && (
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] bg-stone-900/95 backdrop-blur-xl px-2 py-3 rounded-[2.2rem] flex justify-between items-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] z-[130] border border-white/10 ring-1 ring-white/5 animate-in slide-in-from-bottom-4 duration-500">
+          <button onClick={() => setView('feed')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'feed' ? 'text-white' : 'text-stone-500'}`}><Home size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">홈</span></button>
+          <button onClick={() => setView('search')} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'search' ? 'text-white' : 'text-stone-500'}`}><Search size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">찾기</span></button>
+          
+          <div className="flex-1 flex justify-center">
+            <button onClick={() => user.isAnonymous ? setIsLoginModalOpen(true) : setIsCreateModalOpen(true)} className="bg-gradient-to-br from-orange-400 to-orange-600 text-white p-3.5 rounded-2xl shadow-[0_10px_20px_-5px_rgba(249,115,22,0.5)] border-2 border-white/10 active:scale-75 transition-transform"><PlusSquare size={24} /></button>
+          </div>
+          
+          <button onClick={() => { setView('my_page'); setActiveProfileTab('activity'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'activity' ? 'text-white' : 'text-stone-500'}`}><PawPrint size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">꾹</span></button>
+          <button onClick={() => { setView('my_page'); setActiveProfileTab('gallery'); }} className={`flex-1 flex flex-col items-center gap-1 transition-all active:scale-75 ${view === 'my_page' && activeProfileTab === 'gallery' ? 'text-white' : 'text-stone-500'}`}><User size={20} /><span className="text-[8px] font-black uppercase tracking-tighter leading-none">보물함</span></button>
+        </nav>
+      )}
 
+      {/* 모달 */}
       {isCreateModalOpen && <CreateModal onClose={() => setIsCreateModalOpen(false)} onSave={handleSavePost} userName={profile?.nickname || user?.displayName || ''} />}
       {isLoginModalOpen && <LoginModal onClose={() => setIsLoginModalOpen(false)} onLogin={async () => { const provider = new GoogleAuthProvider(); try { await signInWithPopup(auth, provider); setIsLoginModalOpen(false); showToast("로그인 성공!"); } catch(e) { console.error(e); }}} />}
       {isCommentModalOpen && <CommentModal post={activePostForComment} onClose={() => {setIsCommentModalOpen(false); setSelectedPostIdForComment(null);}} onAddComment={handleAddComment} />}
@@ -546,7 +553,7 @@ function PostCard({ post, currentUser, onLike, onCommentClick, onButlerClick, on
         <div className="flex gap-6 mb-4 items-center">
           <PawPrint onClick={handleBtnClick} size={32} className={`cursor-pointer transition-all active:scale-150 ${isLiked ? 'fill-orange-500 text-orange-500 drop-shadow-md' : 'text-stone-800 hover:text-orange-400'}`} />
           <MessageSquare onClick={onCommentClick} size={30} className="text-stone-800 cursor-pointer active:scale-125 transition-transform hover:text-indigo-500" />
-          <Send onClick={onShareClick} size={28} className="text-stone-800 ml-auto opacity-50 hover:opacity-100 cursor-pointer active:scale-125 transition-all" />
+          <Send onClick={() => onShareClick(post)} size={28} className="text-stone-800 ml-auto opacity-50 hover:opacity-100 cursor-pointer active:scale-125 transition-all" />
         </div>
         <p className="text-[12px] font-black text-stone-400 mb-2 uppercase tracking-tighter leading-none">{(post.likes || []).length} Awesome Pet Lovers 꾹!</p>
         <p className="text-sm leading-relaxed">
@@ -631,7 +638,11 @@ function CreateModal({ onClose, onSave, userName }) {
           <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
           {imgData ? (<div className="relative aspect-square rounded-[3rem] overflow-hidden border-8 border-stone-50 shadow-2xl group"><img src={imgData} className="w-full h-full object-cover" alt="preview" /><button onClick={() => setImgData('')} className="absolute top-6 right-6 p-4 bg-black/60 text-white rounded-full backdrop-blur-md transition-all active:scale-90 shadow-lg"><X size={18} /></button></div>) : (<div onClick={() => fileInputRef.current.click()} className="w-full aspect-square bg-stone-50 rounded-[3.5rem] border-4 border-dashed border-stone-200 flex flex-col items-center justify-center cursor-pointer hover:bg-stone-100 transition-all gap-5 active:scale-95 group"><div className="p-7 bg-white rounded-full shadow-2xl text-orange-500 group-hover:scale-110 transition-transform"><Upload size={40} /></div><p className="text-lg font-black text-stone-500 tracking-tight leading-none">사진첩 열기</p></div>)}
           <textarea rows="3" placeholder="아이의 매력을 한마디로!" className="w-full bg-stone-50 rounded-[1.8rem] p-6 text-base outline-none resize-none shadow-inner font-black focus:ring-4 focus:ring-orange-100 transition-all border-none" value={desc} onChange={(e) => setDesc(e.target.value)} />
-          <button onClick={handleSubmit} disabled={!desc || !imgData || isSubmitting} className="w-full bg-stone-900 text-white py-7 rounded-[2.5rem] font-black shadow-2xl active:scale-95 transition-all mb-4 uppercase tracking-[0.3em] text-[15px] leading-none disabled:bg-stone-300">
+          <button 
+            onClick={handleSubmit} 
+            disabled={!desc || !imgData || isSubmitting} 
+            className="w-full bg-stone-900 text-white py-7 rounded-[2.5rem] font-black shadow-2xl active:scale-95 transition-all mb-4 uppercase tracking-[0.3em] text-[15px] leading-none disabled:bg-stone-300"
+          >
             {isSubmitting ? "아이의 추억을 새기는 중..." : "게시하기"}
           </button>
         </div>
